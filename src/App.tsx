@@ -96,7 +96,8 @@ function App() {
   const [points, setPoints] = useState(0);
   const [coins, setCoins] = useState(0);
   const [tapPower, setTapPower] = useState(1);
-  const [autoTapLevel, setAutoTapLevel] = useState(0);
+  const [autoTapWorkers, setAutoTapWorkers] = useState(0);
+  const [autoTapPower, setAutoTapPower] = useState(1);
   const [rebirthCount, setRebirthCount] = useState(0);
   const [rebirthTapMultiplier, setRebirthTapMultiplier] = useState(1);
   const [enemyDefeats, setEnemyDefeats] = useState(0);
@@ -125,7 +126,8 @@ function App() {
     points,
     coins,
     tapPower,
-    autoTapLevel,
+    autoTapWorkers,
+    autoTapPower,
     rebirthCount,
     rebirthTapMultiplier,
     shieldCharges,
@@ -136,11 +138,12 @@ function App() {
   });
   const exchangeableCoins = Math.floor(points / 10);
   const powerUpgradeCost = tapPower * 3;
-  const autoTapCost = 12 + autoTapLevel * 8;
+  const autoWorkerCost = 12 + autoTapWorkers * 8;
+  const autoPowerCost = 15 + autoTapPower * 10;
   const shieldCost = 18;
   const rebirthCost = (rebirthCount + 1) * 1_000;
   const activeTapPower = tapPower * rebirthTapMultiplier * (buff?.type === "tap" ? 2 : 1);
-  const activeAutoRate = autoTapLevel * (buff?.type === "auto" ? 2 : 1);
+  const activeAutoRate = autoTapWorkers * autoTapPower * (buff?.type === "auto" ? 2 : 1);
 
   useEffect(() => {
     pointsRef.current = points;
@@ -159,7 +162,8 @@ function App() {
       points,
       coins,
       tapPower,
-      autoTapLevel,
+      autoTapWorkers,
+      autoTapPower,
       rebirthCount,
       rebirthTapMultiplier,
       shieldCharges,
@@ -169,7 +173,8 @@ function App() {
       highestAutoRate,
     };
   }, [
-    autoTapLevel,
+    autoTapWorkers,
+    autoTapPower,
     coins,
     enemyDefeats,
     highestAutoRate,
@@ -218,11 +223,14 @@ function App() {
           8 * 60 * 60,
           Math.max(0, Math.floor((Date.now() - new Date(data.last_seen_at).getTime()) / 1000)),
         );
-        const offlineReward = offlineSeconds * Number(data.auto_tap_level);
+        const savedWorkers = Number(data.auto_tap_level);
+        const savedAutoPower = Number(data.auto_tap_power ?? 1);
+        const offlineReward = offlineSeconds * savedWorkers * savedAutoPower;
         setPoints(Number(data.points) + offlineReward);
         setCoins(Number(data.coins));
         setTapPower(Number(data.tap_power));
-        setAutoTapLevel(Number(data.auto_tap_level));
+        setAutoTapWorkers(savedWorkers);
+        setAutoTapPower(savedAutoPower);
         setRebirthCount(Number(data.rebirth_count));
         setRebirthTapMultiplier(Number(data.rebirth_tap_multiplier ?? 1));
         setShieldCharges(Number(data.shield_charges));
@@ -254,7 +262,8 @@ function App() {
         points: state.points,
         coins: state.coins,
         tap_power: state.tapPower,
-        auto_tap_level: state.autoTapLevel,
+        auto_tap_level: state.autoTapWorkers,
+        auto_tap_power: state.autoTapPower,
         rebirth_count: state.rebirthCount,
         rebirth_tap_multiplier: state.rebirthTapMultiplier,
         shield_charges: state.shieldCharges,
@@ -290,14 +299,14 @@ function App() {
   }, [activeAutoRate]);
 
   useEffect(() => {
-    if (!isGameReady || autoTapLevel === 0) return;
+    if (!isGameReady || autoTapWorkers === 0) return;
 
     const intervalId = window.setInterval(() => {
       setPoints((currentPoints) => currentPoints + activeAutoRate);
     }, 1000);
 
     return () => window.clearInterval(intervalId);
-  }, [activeAutoRate, autoTapLevel, isGameReady]);
+  }, [activeAutoRate, autoTapWorkers, isGameReady]);
 
   useEffect(() => {
     if (!buff) return;
@@ -425,11 +434,18 @@ function App() {
     setTapPower((currentPower) => currentPower + 1);
   };
 
-  const buyAutoTapUpgrade = () => {
-    if (coins < autoTapCost) return;
+  const hireAutoTapWorker = () => {
+    if (coins < autoWorkerCost) return;
 
-    setCoins((currentCoins) => currentCoins - autoTapCost);
-    setAutoTapLevel((currentLevel) => currentLevel + 1);
+    setCoins((currentCoins) => currentCoins - autoWorkerCost);
+    setAutoTapWorkers((currentWorkers) => currentWorkers + 1);
+  };
+
+  const upgradeAutoTapPower = () => {
+    if (coins < autoPowerCost) return;
+
+    setCoins((currentCoins) => currentCoins - autoPowerCost);
+    setAutoTapPower((currentPower) => currentPower + 1);
   };
 
   const buyShield = () => {
@@ -450,13 +466,13 @@ function App() {
         generation: rebirthCount + 1,
         reached_points: points,
         tap_power: tapPower,
-        auto_tap_level: autoTapLevel,
+        auto_tap_level: autoTapWorkers,
       });
     }
     setPoints(0);
     setCoins(0);
     setTapPower((currentPower) => Math.max(1, Math.floor(currentPower / 2)));
-    setAutoTapLevel((currentLevel) => currentLevel * 2);
+    setAutoTapWorkers((currentWorkers) => currentWorkers * 2);
     setRebirthTapMultiplier((currentMultiplier) => currentMultiplier * 2);
     setShieldCharges(0);
     setBuff(null);
@@ -552,9 +568,9 @@ function App() {
             +{activeTapPower}
           </span>
           <span className="tap-button__label">TAP!</span>
-          {autoTapLevel > 0 && (
+          {autoTapWorkers > 0 && (
             <span className="auto-pointers" aria-hidden="true">
-              {Array.from({ length: Math.min(autoTapLevel, AUTO_POINTER_POSITIONS.length) }, (_, index) => {
+              {Array.from({ length: Math.min(autoTapWorkers, AUTO_POINTER_POSITIONS.length) }, (_, index) => {
                 const [x, y] = AUTO_POINTER_POSITIONS[index];
                 return (
                   <span
@@ -572,8 +588,8 @@ function App() {
                   </span>
                 );
               })}
-              {autoTapLevel > AUTO_POINTER_POSITIONS.length && (
-                <span className="auto-pointer-count">+{autoTapLevel - AUTO_POINTER_POSITIONS.length}</span>
+              {autoTapWorkers > AUTO_POINTER_POSITIONS.length && (
+                <span className="auto-pointer-count">+{autoTapWorkers - AUTO_POINTER_POSITIONS.length}</span>
               )}
             </span>
           )}
@@ -700,12 +716,23 @@ function App() {
                 <article className="upgrade-card">
                   <div className="upgrade-card__icon" aria-hidden="true">🤖</div>
                   <div className="upgrade-card__details">
-                    <strong>오토 탭</strong>
+                    <strong>작업자 고용</strong>
                     <span>자동 탭을 해주는 사람 1명을 추가해요</span>
-                    <small>현재 레벨 {autoTapLevel} · 초당 +{autoTapLevel}/s</small>
+                    <small>현재 {autoTapWorkers}명 · 초당 +{activeAutoRate}/s</small>
                   </div>
-                  <ActionButton onClick={buyAutoTapUpgrade} disabled={coins < autoTapCost}>
-                    {autoTapCost} 코인
+                  <ActionButton onClick={hireAutoTapWorker} disabled={coins < autoWorkerCost}>
+                    {autoWorkerCost} 코인
+                  </ActionButton>
+                </article>
+                <article className="upgrade-card">
+                  <div className="upgrade-card__icon" aria-hidden="true">⚙️</div>
+                  <div className="upgrade-card__details">
+                    <strong>오토 탭 강화</strong>
+                    <span>작업자 한 명의 자동 탭을 +1/s 강화해요</span>
+                    <small>인당 +{autoTapPower}/s → +{autoTapPower + 1}/s</small>
+                  </div>
+                  <ActionButton onClick={upgradeAutoTapPower} disabled={coins < autoPowerCost}>
+                    {autoPowerCost} 코인
                   </ActionButton>
                 </article>
                 <article className="upgrade-card upgrade-card--shield">
