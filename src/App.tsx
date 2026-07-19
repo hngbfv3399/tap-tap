@@ -53,6 +53,9 @@ const getMilestoneMultiplier = (count: number) =>
 const getNextMilestone = (count: number) =>
   [10, 25, 50].find((milestone) => count < milestone) ?? null;
 
+const getLegacyCost = (level: number) => level + 1;
+const getLegacyTotal = (lifetimePoints: number) => Math.floor(Math.cbrt(lifetimePoints / 100_000));
+
 const formatScore = (value: number) => {
   const units = [
     { value: 1_000_000_000, suffix: "B" },
@@ -111,6 +114,14 @@ function App() {
   const [guardianWorkerLevel, setGuardianWorkerLevel] = useState(0);
   const [savings, setSavings] = useState(0);
   const [rebirthCount, setRebirthCount] = useState(0);
+  const [lifetimePoints, setLifetimePoints] = useState(0);
+  const [legacyPoints, setLegacyPoints] = useState(0);
+  const [legacyEarnedTotal, setLegacyEarnedTotal] = useState(0);
+  const [legacyProductionLevel, setLegacyProductionLevel] = useState(0);
+  const [legacyOfflineLevel, setLegacyOfflineLevel] = useState(0);
+  const [legacyBountyLevel, setLegacyBountyLevel] = useState(0);
+  const [legacyTreasureLevel, setLegacyTreasureLevel] = useState(0);
+  const [legacyStartCoinsLevel, setLegacyStartCoinsLevel] = useState(0);
   const [enemyDefeats, setEnemyDefeats] = useState(0);
   const [highestPoints, setHighestPoints] = useState(0);
   const [highestAutoRate, setHighestAutoRate] = useState(0);
@@ -122,7 +133,7 @@ function App() {
   const [shieldCharges, setShieldCharges] = useState(0);
   const [rewardNotice, setRewardNotice] = useState<string | null>(null);
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
-  const [activePanel, setActivePanel] = useState<"shop" | "workers" | "achievements">("shop");
+  const [activePanel, setActivePanel] = useState<"shop" | "workers" | "legacy" | "achievements">("shop");
   const [totalTaps, setTotalTaps] = useState(0);
   const [pops, setPops] = useState<Pop[]>([]);
   const nextId = useRef(0);
@@ -147,6 +158,14 @@ function App() {
     guardianWorkerLevel,
     savings,
     rebirthCount,
+    lifetimePoints,
+    legacyPoints,
+    legacyEarnedTotal,
+    legacyProductionLevel,
+    legacyOfflineLevel,
+    legacyBountyLevel,
+    legacyTreasureLevel,
+    legacyStartCoinsLevel,
     shieldCharges,
     totalTaps,
     enemyDefeats,
@@ -162,7 +181,10 @@ function App() {
   const guardianWorkerCost = 25 + guardianWorkerLevel * 15;
   const shieldCost = 18;
   const rebirthCost = (rebirthCount + 1) * 1_000;
-  const generationMultiplier = 1 + rebirthCount * 0.05;
+  const generationMultiplier = (1 + rebirthCount * 0.05) * (1 + legacyProductionLevel * 0.02);
+  const totalLegacyAvailable = getLegacyTotal(lifetimePoints);
+  const pendingLegacyPoints = Math.max(0, totalLegacyAvailable - legacyEarnedTotal);
+  const treasureDelayMultiplier = 1 - legacyTreasureLevel * 0.05;
   const achievementMultiplier = 1 + achievements.filter((achievement) => totalTaps >= achievement.target).length * 0.003;
   const autoTapperMilestone = getMilestoneMultiplier(autoTapWorkers);
   const workshopMilestone = getMilestoneMultiplier(workshopCount);
@@ -211,6 +233,14 @@ function App() {
       guardianWorkerLevel,
       savings,
       rebirthCount,
+      lifetimePoints,
+      legacyPoints,
+      legacyEarnedTotal,
+      legacyProductionLevel,
+      legacyOfflineLevel,
+      legacyBountyLevel,
+      legacyTreasureLevel,
+      legacyStartCoinsLevel,
       shieldCharges,
       totalTaps,
       enemyDefeats,
@@ -229,6 +259,14 @@ function App() {
     highestPoints,
     points,
     rebirthCount,
+    lifetimePoints,
+    legacyPoints,
+    legacyEarnedTotal,
+    legacyProductionLevel,
+    legacyOfflineLevel,
+    legacyBountyLevel,
+    legacyTreasureLevel,
+    legacyStartCoinsLevel,
     shieldCharges,
     savings,
     tapPower,
@@ -273,19 +311,37 @@ function App() {
         );
         const savedWorkers = Number(data.auto_tap_level);
         const savedAutoTapPower = Number(data.auto_tap_power ?? 1);
-        const offlineReward = offlineSeconds * savedWorkers * savedAutoTapPower;
+        const savedWorkshops = Number(data.workshop_count ?? 0);
+        const savedFactories = Number(data.factory_count ?? 0);
+        const savedRebirthCount = Number(data.rebirth_count);
+        const savedTotalTaps = Number(data.total_taps);
+        const savedOfflineLevel = Number(data.legacy_offline_level ?? 0);
+        const savedAchievementMultiplier = 1 + achievements.filter((achievement) => savedTotalTaps >= achievement.target).length * 0.003;
+        const savedAutoBase = savedWorkers * savedAutoTapPower * getMilestoneMultiplier(savedWorkers)
+          * (1 + savedWorkshops * 0.05 * getMilestoneMultiplier(savedWorkshops));
+        const savedFactoryRate = savedFactories * 20 * getMilestoneMultiplier(savedFactories);
+        const savedProductionMultiplier = (1 + savedRebirthCount * 0.05) * (1 + Number(data.legacy_production_level ?? 0) * 0.02);
+        const offlineReward = Math.floor(offlineSeconds * (savedAutoBase + savedFactoryRate) * savedProductionMultiplier * savedAchievementMultiplier * (1 + savedOfflineLevel * 0.1));
         setPoints(Number(data.points) + offlineReward);
+        setLifetimePoints(Number(data.lifetime_points ?? data.highest_points ?? data.points) + offlineReward);
         setCoins(Number(data.coins));
         setTapPower(Number(data.tap_power));
         setAutoTapWorkers(savedWorkers);
         setAutoTapPower(savedAutoTapPower);
-        setWorkshopCount(Number(data.workshop_count ?? 0));
-        setFactoryCount(Number(data.factory_count ?? 0));
+        setWorkshopCount(savedWorkshops);
+        setFactoryCount(savedFactories);
         setGuardianWorkerLevel(Number(data.guardian_worker_level ?? 0));
         setSavings(Number(data.savings_points ?? 0));
-        setRebirthCount(Number(data.rebirth_count));
+        setRebirthCount(savedRebirthCount);
+        setLegacyPoints(Number(data.legacy_points ?? 0));
+        setLegacyEarnedTotal(Number(data.legacy_earned_total ?? 0));
+        setLegacyProductionLevel(Number(data.legacy_production_level ?? 0));
+        setLegacyOfflineLevel(savedOfflineLevel);
+        setLegacyBountyLevel(Number(data.legacy_bounty_level ?? 0));
+        setLegacyTreasureLevel(Number(data.legacy_treasure_level ?? 0));
+        setLegacyStartCoinsLevel(Number(data.legacy_start_coins_level ?? 0));
         setShieldCharges(Number(data.shield_charges));
-        setTotalTaps(Number(data.total_taps));
+        setTotalTaps(savedTotalTaps);
         setEnemyDefeats(Number(data.enemy_defeats));
         setHighestPoints(Math.max(Number(data.highest_points), Number(data.points) + offlineReward));
         setHighestAutoRate(Number(data.highest_auto_rate));
@@ -320,6 +376,14 @@ function App() {
         guardian_worker_level: state.guardianWorkerLevel,
         savings_points: state.savings,
         rebirth_count: state.rebirthCount,
+        lifetime_points: state.lifetimePoints,
+        legacy_points: state.legacyPoints,
+        legacy_earned_total: state.legacyEarnedTotal,
+        legacy_production_level: state.legacyProductionLevel,
+        legacy_offline_level: state.legacyOfflineLevel,
+        legacy_bounty_level: state.legacyBountyLevel,
+        legacy_treasure_level: state.legacyTreasureLevel,
+        legacy_start_coins_level: state.legacyStartCoinsLevel,
         rebirth_tap_multiplier: 1,
         shield_charges: state.shieldCharges,
         total_taps: state.totalTaps,
@@ -358,6 +422,7 @@ function App() {
 
     const intervalId = window.setInterval(() => {
       setPoints((currentPoints) => currentPoints + activeAutoRate);
+      setLifetimePoints((currentPoints) => currentPoints + activeAutoRate);
     }, 1000);
 
     return () => window.clearInterval(intervalId);
@@ -447,7 +512,7 @@ function App() {
     if (!isGameReady) return;
 
     let timeoutId: number;
-    const randomDelay = ([min, max]: readonly [number, number]) => min + Math.random() * (max - min);
+    const randomDelay = ([min, max]: readonly [number, number]) => (min + Math.random() * (max - min)) * treasureDelayMultiplier;
     const scheduleTreasure = (delayRange: readonly [number, number]) => {
       timeoutId = window.setTimeout(() => {
         if (buffRef.current || treasureRef.current) {
@@ -474,13 +539,14 @@ function App() {
 
     scheduleTreasure(FIRST_TREASURE_DELAY);
     return () => window.clearTimeout(timeoutId);
-  }, [isGameReady]);
+  }, [isGameReady, treasureDelayMultiplier]);
 
   const addPoint = (event: React.PointerEvent<HTMLButtonElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
     const id = nextId.current++;
 
     setPoints((currentPoints) => currentPoints + activeTapPower);
+    setLifetimePoints((currentPoints) => currentPoints + activeTapPower);
     setTotalTaps((currentTaps) => currentTaps + 1);
     setPops((currentPops) => [
       ...currentPops,
@@ -576,8 +642,11 @@ function App() {
         auto_tap_level: autoTapWorkers,
       });
     }
+    setLegacyPoints((currentPoints) => currentPoints + pendingLegacyPoints);
+    setLegacyEarnedTotal(totalLegacyAvailable);
     setPoints(nextSavingsInterest);
-    setCoins(0);
+    setLifetimePoints((currentPoints) => currentPoints + nextSavingsInterest);
+    setCoins(legacyStartCoinsLevel);
     setTapPower(1);
     setAutoTapWorkers(0);
     setAutoTapPower(1);
@@ -595,12 +664,25 @@ function App() {
     setIsRebirthConfirmOpen(false);
   };
 
+  const buyLegacyUpgrade = (
+    level: number,
+    maxLevel: number,
+    upgrade: React.Dispatch<React.SetStateAction<number>>,
+  ) => {
+    const cost = getLegacyCost(level);
+    if (level >= maxLevel || legacyPoints < cost) return;
+
+    setLegacyPoints((currentPoints) => currentPoints - cost);
+    upgrade((currentLevel) => currentLevel + 1);
+  };
+
   const collectTreasure = () => {
     if (!treasure) return;
 
     if (treasure.type === "cookie") {
       const cookieReward = Math.max(25, activeAutoRate * 120 + activeTapPower * 100);
       setPoints((currentPoints) => currentPoints + cookieReward);
+      setLifetimePoints((currentPoints) => currentPoints + cookieReward);
       setRewardNotice(`행운의 쿠키! +${formatScore(cookieReward)} 포인트`);
       window.setTimeout(() => setRewardNotice(null), 1_400);
     } else {
@@ -620,9 +702,9 @@ function App() {
       if (timeoutId) window.clearTimeout(timeoutId);
       enemyTimers.current.delete(enemyId);
       setEnemies((currentEnemies) => currentEnemies.filter((enemy) => enemy.id !== enemyId));
-      setCoins((currentCoins) => currentCoins + 1);
+      setCoins((currentCoins) => currentCoins + 1 + legacyBountyLevel);
       setEnemyDefeats((currentDefeats) => currentDefeats + 1);
-      setRewardNotice("방해꾼 처치! +1 코인");
+      setRewardNotice(`방해꾼 처치! +${1 + legacyBountyLevel} 코인`);
       window.setTimeout(() => setRewardNotice(null), 1_400);
       return;
     }
@@ -779,7 +861,7 @@ function App() {
               <div>
                 <p>보유 코인 {coins.toLocaleString()}개</p>
                 <h2 id="upgrade-title">
-                  {activePanel === "shop" ? "상점" : activePanel === "workers" ? "작업자" : "업적"}
+                  {activePanel === "shop" ? "상점" : activePanel === "workers" ? "작업자" : activePanel === "legacy" ? "세대 기억" : "업적"}
                 </h2>
               </div>
               <button
@@ -810,6 +892,15 @@ function App() {
                 onClick={() => setActivePanel("workers")}
               >
                 작업자
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activePanel === "legacy"}
+                className={activePanel === "legacy" ? "sheet-tab sheet-tab--active" : "sheet-tab"}
+                onClick={() => setActivePanel("legacy")}
+              >
+                세대
               </button>
               <button
                 type="button"
@@ -951,6 +1042,67 @@ function App() {
                   </ActionButton>
                 </article>
               </div>
+            ) : activePanel === "legacy" ? (
+              <div className="upgrade-list" role="tabpanel">
+                <p className="achievement-summary">
+                  누적 {formatScore(lifetimePoints)} 포인트 · 보유 기억 {legacyPoints}개 · 이번 환생 +{pendingLegacyPoints}개
+                </p>
+                <article className="upgrade-card upgrade-card--rebirth">
+                  <div className="upgrade-card__icon" aria-hidden="true">✨</div>
+                  <div className="upgrade-card__details">
+                    <strong>세대의 힘</strong>
+                    <span>전체 탭·자동 생산량을 영구적으로 2% 올려요</span>
+                    <small>레벨 {legacyProductionLevel}/10 · 현재 +{legacyProductionLevel * 2}%</small>
+                  </div>
+                  <ActionButton onClick={() => buyLegacyUpgrade(legacyProductionLevel, 10, setLegacyProductionLevel)} disabled={legacyProductionLevel >= 10 || legacyPoints < getLegacyCost(legacyProductionLevel)}>
+                    {legacyProductionLevel >= 10 ? "완료" : `${getLegacyCost(legacyProductionLevel)} 기억`}
+                  </ActionButton>
+                </article>
+                <article className="upgrade-card upgrade-card--worker">
+                  <div className="upgrade-card__icon" aria-hidden="true">🌙</div>
+                  <div className="upgrade-card__details">
+                    <strong>깨어 있는 기록</strong>
+                    <span>오프라인 자동 생산 보상을 10% 올려요</span>
+                    <small>레벨 {legacyOfflineLevel}/5 · 현재 +{legacyOfflineLevel * 10}%</small>
+                  </div>
+                  <ActionButton onClick={() => buyLegacyUpgrade(legacyOfflineLevel, 5, setLegacyOfflineLevel)} disabled={legacyOfflineLevel >= 5 || legacyPoints < getLegacyCost(legacyOfflineLevel)}>
+                    {legacyOfflineLevel >= 5 ? "완료" : `${getLegacyCost(legacyOfflineLevel)} 기억`}
+                  </ActionButton>
+                </article>
+                <article className="upgrade-card upgrade-card--worker">
+                  <div className="upgrade-card__icon" aria-hidden="true">⚔️</div>
+                  <div className="upgrade-card__details">
+                    <strong>사냥꾼의 기억</strong>
+                    <span>방해꾼 처치 보상 코인을 +1 올려요</span>
+                    <small>레벨 {legacyBountyLevel}/5 · 처치 보상 +{1 + legacyBountyLevel} 코인</small>
+                  </div>
+                  <ActionButton onClick={() => buyLegacyUpgrade(legacyBountyLevel, 5, setLegacyBountyLevel)} disabled={legacyBountyLevel >= 5 || legacyPoints < getLegacyCost(legacyBountyLevel)}>
+                    {legacyBountyLevel >= 5 ? "완료" : `${getLegacyCost(legacyBountyLevel)} 기억`}
+                  </ActionButton>
+                </article>
+                <article className="upgrade-card upgrade-card--worker">
+                  <div className="upgrade-card__icon" aria-hidden="true">🎁</div>
+                  <div className="upgrade-card__details">
+                    <strong>보물의 흔적</strong>
+                    <span>보물 등장 대기 시간을 5% 줄여요</span>
+                    <small>레벨 {legacyTreasureLevel}/5 · 현재 -{legacyTreasureLevel * 5}%</small>
+                  </div>
+                  <ActionButton onClick={() => buyLegacyUpgrade(legacyTreasureLevel, 5, setLegacyTreasureLevel)} disabled={legacyTreasureLevel >= 5 || legacyPoints < getLegacyCost(legacyTreasureLevel)}>
+                    {legacyTreasureLevel >= 5 ? "완료" : `${getLegacyCost(legacyTreasureLevel)} 기억`}
+                  </ActionButton>
+                </article>
+                <article className="upgrade-card upgrade-card--exchange">
+                  <div className="upgrade-card__icon" aria-hidden="true">🪙</div>
+                  <div className="upgrade-card__details">
+                    <strong>여행 경비</strong>
+                    <span>환생 후 시작 코인을 1개 올려요</span>
+                    <small>레벨 {legacyStartCoinsLevel}/5 · 다음 시작 {legacyStartCoinsLevel} 코인</small>
+                  </div>
+                  <ActionButton onClick={() => buyLegacyUpgrade(legacyStartCoinsLevel, 5, setLegacyStartCoinsLevel)} disabled={legacyStartCoinsLevel >= 5 || legacyPoints < getLegacyCost(legacyStartCoinsLevel)}>
+                    {legacyStartCoinsLevel >= 5 ? "완료" : `${getLegacyCost(legacyStartCoinsLevel)} 기억`}
+                  </ActionButton>
+                </article>
+              </div>
             ) : (
               <div className="achievement-list" role="tabpanel">
                 <p className="achievement-summary">
@@ -999,11 +1151,12 @@ function App() {
             <span className="rebirth-confirm__icon" aria-hidden="true">✨</span>
             <h2 id="rebirth-title">환생하시겠어요?</h2>
             <p className="rebirth-confirm__cost">{rebirthCost.toLocaleString()}코인이 필요해요.</p>
+            <p className="rebirth-confirm__cost">세대 기억 +{pendingLegacyPoints}개를 얻어요.</p>
             <div className="rebirth-confirm__notice">
               <strong>초기화되는 것</strong>
               <span>포인트, 코인, 탭·작업자·작업대·공장 강화, 보호막, 진행 중인 이벤트</span>
               <strong>다음 세대에 남는 것</strong>
-              <span>모든 생산량 +5%, 적금 5% 이자와 이자 포인트, 직접 탭 업적</span>
+              <span>세대 생산 +5%, 세대 기억과 영구 연구, 적금 5% 이자와 이자 포인트, 직접 탭 업적</span>
             </div>
             <div className="rebirth-confirm__actions">
               <ActionButton tone="weak" onClick={() => setIsRebirthConfirmOpen(false)}>
