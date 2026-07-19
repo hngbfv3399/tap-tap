@@ -11,6 +11,7 @@ type Pop = {
 type Buff = {
   multiplier: 2 | 10;
   remaining: number;
+  duration: number;
 };
 
 type Enemy = {
@@ -29,8 +30,9 @@ type Treasure = {
   y: number;
 };
 
-const BUFF_DURATION = 30;
 const ENEMY_CHASE_DURATION = 6_000;
+const FIRST_TREASURE_DELAY = [60_000, 90_000] as const;
+const TREASURE_DELAY = [120_000, 180_000] as const;
 
 const AUTO_POINTER_POSITIONS = [
   [79, 76], [16, 73], [80, 22], [17, 22],
@@ -101,7 +103,6 @@ function App() {
   const [guardianWorkerLevel, setGuardianWorkerLevel] = useState(0);
   const [savings, setSavings] = useState(0);
   const [rebirthCount, setRebirthCount] = useState(0);
-  const [rebirthTapMultiplier, setRebirthTapMultiplier] = useState(1);
   const [enemyDefeats, setEnemyDefeats] = useState(0);
   const [highestPoints, setHighestPoints] = useState(0);
   const [highestAutoRate, setHighestAutoRate] = useState(0);
@@ -123,6 +124,8 @@ function App() {
   const shieldChargesRef = useRef(shieldCharges);
   const tapPowerRef = useRef(tapPower);
   const enemyTheftRateRef = useRef(0.05);
+  const buffRef = useRef<Buff | null>(buff);
+  const treasureRef = useRef<Treasure | null>(treasure);
   const enemyTimers = useRef(new Map<number, number>());
   const userIdRef = useRef<string | null>(null);
   const gameStateRef = useRef({
@@ -134,7 +137,6 @@ function App() {
     guardianWorkerLevel,
     savings,
     rebirthCount,
-    rebirthTapMultiplier,
     shieldCharges,
     totalTaps,
     enemyDefeats,
@@ -142,17 +144,17 @@ function App() {
     highestAutoRate,
   });
   const exchangeableCoins = Math.floor(points / 10);
-  const powerUpgradeCost = tapPower * 3;
-  const autoTapperCost = Math.ceil(20 * 1.05 ** autoTapWorkers);
-  const autoTapPowerCost = Math.ceil(30 * 1.05 ** (autoTapPower - 1));
+  const powerUpgradeCost = Math.ceil(50 * 1.2 ** (tapPower - 1));
+  const autoTapperCost = Math.ceil(20 * 1.15 ** autoTapWorkers);
+  const autoTapPowerCost = Math.ceil(40 * 1.15 ** (autoTapPower - 1));
   const guardianWorkerCost = 25 + guardianWorkerLevel * 15;
   const shieldCost = 18;
   const rebirthCost = (rebirthCount + 1) * 1_000;
-  const activeTapPower = tapPower * rebirthTapMultiplier * (buff?.multiplier ?? 1);
-  const activeAutoRate = autoTapWorkers * autoTapPower;
-  const treasureChance = 0.04;
+  const generationMultiplier = 1 + rebirthCount * 0.05;
+  const activeTapPower = Math.max(1, Math.floor(tapPower * generationMultiplier * (buff?.multiplier ?? 1)));
+  const activeAutoRate = Math.floor(autoTapWorkers * autoTapPower * generationMultiplier);
   const enemyTheftRate = Math.max(0.01, 0.05 - guardianWorkerLevel * 0.005);
-  const nextSavingsInterest = Math.floor(savings * 0.25);
+  const nextSavingsInterest = Math.floor(savings * 0.05);
 
   useEffect(() => {
     pointsRef.current = points;
@@ -171,6 +173,14 @@ function App() {
   }, [enemyTheftRate]);
 
   useEffect(() => {
+    buffRef.current = buff;
+  }, [buff]);
+
+  useEffect(() => {
+    treasureRef.current = treasure;
+  }, [treasure]);
+
+  useEffect(() => {
     gameStateRef.current = {
       points,
       coins,
@@ -180,7 +190,6 @@ function App() {
       guardianWorkerLevel,
       savings,
       rebirthCount,
-      rebirthTapMultiplier,
       shieldCharges,
       totalTaps,
       enemyDefeats,
@@ -197,7 +206,6 @@ function App() {
     highestPoints,
     points,
     rebirthCount,
-    rebirthTapMultiplier,
     shieldCharges,
     savings,
     tapPower,
@@ -251,7 +259,6 @@ function App() {
         setGuardianWorkerLevel(Number(data.guardian_worker_level ?? 0));
         setSavings(Number(data.savings_points ?? 0));
         setRebirthCount(Number(data.rebirth_count));
-        setRebirthTapMultiplier(Number(data.rebirth_tap_multiplier ?? 1));
         setShieldCharges(Number(data.shield_charges));
         setTotalTaps(Number(data.total_taps));
         setEnemyDefeats(Number(data.enemy_defeats));
@@ -286,7 +293,7 @@ function App() {
         guardian_worker_level: state.guardianWorkerLevel,
         savings_points: state.savings,
         rebirth_count: state.rebirthCount,
-        rebirth_tap_multiplier: state.rebirthTapMultiplier,
+        rebirth_tap_multiplier: 1,
         shield_charges: state.shieldCharges,
         total_taps: state.totalTaps,
         enemy_defeats: state.enemyDefeats,
@@ -409,25 +416,45 @@ function App() {
     };
   }, [isGameReady]);
 
+  useEffect(() => {
+    if (!isGameReady) return;
+
+    let timeoutId: number;
+    const randomDelay = ([min, max]: readonly [number, number]) => min + Math.random() * (max - min);
+    const scheduleTreasure = (delayRange: readonly [number, number]) => {
+      timeoutId = window.setTimeout(() => {
+        if (buffRef.current || treasureRef.current) {
+          scheduleTreasure([10_000, 15_000]);
+          return;
+        }
+
+        const treasureSize = 66;
+        const padding = 8;
+        const contentBounds = gameContentRef.current?.getBoundingClientRect();
+        const width = contentBounds?.width ?? 320;
+        const height = contentBounds?.height ?? 600;
+        const rewardRoll = Math.random();
+        const nextTreasure: Treasure = {
+          type: rewardRoll < 0.7 ? "tap-2" : rewardRoll < 0.73 ? "tap-10" : "cookie",
+          x: padding + Math.random() * Math.max(0, width - treasureSize - padding * 2),
+          y: padding + Math.random() * Math.max(0, height - treasureSize - padding * 2),
+        };
+        treasureRef.current = nextTreasure;
+        setTreasure(nextTreasure);
+        scheduleTreasure(TREASURE_DELAY);
+      }, randomDelay(delayRange));
+    };
+
+    scheduleTreasure(FIRST_TREASURE_DELAY);
+    return () => window.clearTimeout(timeoutId);
+  }, [isGameReady]);
+
   const addPoint = (event: React.PointerEvent<HTMLButtonElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
     const id = nextId.current++;
 
     setPoints((currentPoints) => currentPoints + activeTapPower);
     setTotalTaps((currentTaps) => currentTaps + 1);
-    if (!treasure && !buff && Math.random() < treasureChance) {
-      const treasureSize = 66;
-      const padding = 8;
-      const contentBounds = gameContentRef.current?.getBoundingClientRect();
-      const width = contentBounds?.width ?? 320;
-      const height = contentBounds?.height ?? 600;
-      const rewardRoll = Math.random();
-      setTreasure({
-        type: rewardRoll < 0.65 ? "tap-2" : rewardRoll < 0.8 ? "tap-10" : "cookie",
-        x: padding + Math.random() * Math.max(0, width - treasureSize - padding * 2),
-        y: padding + Math.random() * Math.max(0, height - treasureSize - padding * 2),
-      });
-    }
     setPops((currentPops) => [
       ...currentPops,
       {
@@ -510,14 +537,17 @@ function App() {
     }
     setPoints(nextSavingsInterest);
     setCoins(0);
-    setTapPower((currentPower) => Math.max(1, Math.floor(currentPower / 2)));
-    setAutoTapWorkers((currentWorkers) => currentWorkers * 2);
-    setRebirthTapMultiplier((currentMultiplier) => currentMultiplier * 2);
+    setTapPower(1);
+    setAutoTapWorkers(0);
+    setAutoTapPower(1);
+    setGuardianWorkerLevel(0);
     setShieldCharges(0);
     setBuff(null);
+    buffRef.current = null;
     setTreasure(null);
+    treasureRef.current = null;
     setEnemies([]);
-    setSavings((currentSavings) => currentSavings + Math.floor(currentSavings * 0.25));
+    setSavings((currentSavings) => currentSavings + Math.floor(currentSavings * 0.05));
     setRebirthCount((currentCount) => currentCount + 1);
     setIsRebirthConfirmOpen(false);
   };
@@ -526,14 +556,16 @@ function App() {
     if (!treasure) return;
 
     if (treasure.type === "cookie") {
-      const cookieReward = Math.max(1, Math.floor(points / 3));
-      setPoints((currentPoints) => currentPoints + Math.max(1, Math.floor(currentPoints / 3)));
+      const cookieReward = Math.max(25, activeAutoRate * 120 + activeTapPower * 100);
+      setPoints((currentPoints) => currentPoints + cookieReward);
       setRewardNotice(`행운의 쿠키! +${formatScore(cookieReward)} 포인트`);
       window.setTimeout(() => setRewardNotice(null), 1_400);
     } else {
-      setBuff({ multiplier: treasure.type === "tap-10" ? 10 : 2, remaining: BUFF_DURATION });
+      const duration = treasure.type === "tap-10" ? 5 : 15;
+      setBuff({ multiplier: treasure.type === "tap-10" ? 10 : 2, remaining: duration, duration });
     }
     setTreasure(null);
+    treasureRef.current = null;
   };
 
   const attackEnemy = (enemyId: number) => {
@@ -595,7 +627,7 @@ function App() {
               <span>{buff.remaining}초</span>
             </div>
             <div className="buff-status__bar">
-              <span style={{ width: `${(buff.remaining / BUFF_DURATION) * 100}%` }} />
+              <span style={{ width: `${(buff.remaining / buff.duration) * 100}%` }} />
             </div>
           </div>
         )}
@@ -764,9 +796,9 @@ function App() {
                   <div className="upgrade-card__icon" aria-hidden="true">☝️</div>
                   <div className="upgrade-card__details">
                     <strong>강한 탭</strong>
-                    <span>탭 포인트가 구매할 때마다 +{rebirthTapMultiplier} 늘어나요</span>
+                    <span>탭 포인트를 구매할 때마다 +1 올려요</span>
                     <small>
-                      +{tapPower * rebirthTapMultiplier} 포인트 → +{(tapPower + 1) * rebirthTapMultiplier} 포인트
+                      +{Math.floor(tapPower * generationMultiplier)} 포인트 → +{Math.floor((tapPower + 1) * generationMultiplier)} 포인트 · 가격 20% 상승
                     </small>
                   </div>
                   <ActionButton onClick={buyPowerUpgrade} disabled={coins < powerUpgradeCost}>
@@ -799,7 +831,7 @@ function App() {
                   <div className="upgrade-card__icon" aria-hidden="true">✨</div>
                   <div className="upgrade-card__details">
                     <strong>누군가의 흔적</strong>
-                    <span>탭 강화 효과·자동 탭퍼 인원을 2배로, 적금은 25% 불어나요</span>
+                    <span>모든 생산량이 세대마다 5%씩 늘고, 적금도 5% 불어나요</span>
                     <small>환생 {rebirthCount}회 · 다음 환생 {rebirthCost.toLocaleString()} 코인</small>
                   </div>
                   <ActionButton onClick={() => setIsRebirthConfirmOpen(true)} disabled={coins < rebirthCost}>
@@ -814,7 +846,7 @@ function App() {
                   <div className="upgrade-card__details">
                     <strong>자동 탭퍼 고용</strong>
                     <span>작업자 한 명이 초당 +{autoTapPower}/s를 만들어요</span>
-                    <small>{autoTapWorkers}명 · 합계 초당 +{activeAutoRate}/s · 가격은 매번 5% 상승</small>
+                    <small>{autoTapWorkers}명 · 합계 초당 +{activeAutoRate}/s · 가격은 매번 15% 상승</small>
                   </div>
                   <ActionButton onClick={upgradeAutoTapper} disabled={coins < autoTapperCost}>
                     {autoTapperCost} 코인
@@ -891,9 +923,9 @@ function App() {
             <p className="rebirth-confirm__cost">{rebirthCost.toLocaleString()}코인이 필요해요.</p>
             <div className="rebirth-confirm__notice">
               <strong>초기화되는 것</strong>
-              <span>포인트, 코인, 보호막, 진행 중인 이벤트</span>
+              <span>포인트, 코인, 탭·자동 탭퍼·수호 작업자 강화, 보호막, 진행 중인 이벤트</span>
               <strong>다음 세대에 남는 것</strong>
-              <span>탭 강화 효과 2배, 자동 탭퍼 인원 2배, 적금 25% 이자와 이자 포인트, 수호 작업자 레벨, 직접 탭 업적</span>
+              <span>모든 생산량 +5%, 적금 5% 이자와 이자 포인트, 직접 탭 업적</span>
             </div>
             <div className="rebirth-confirm__actions">
               <ActionButton tone="weak" onClick={() => setIsRebirthConfirmOpen(false)}>
