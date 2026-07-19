@@ -172,7 +172,7 @@
   font-variant-numeric: tabular-nums;
   letter-spacing: -3px;
   line-height: 1.15;
-  transform: translateY(-20px);
+  transform: translateY(-46px);
 }
 
 .game__auto-rate {
@@ -180,11 +180,12 @@
   color: #6b7684;
   font-size: 14px;
   font-weight: 600;
-  transform: translateY(-20px);
+  transform: translateY(-46px);
 }
 
 .tap-button {
   position: relative;
+  top: -28px;
   display: grid;
   place-items: center;
   width: min(62vw, 260px);
