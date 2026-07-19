@@ -129,6 +129,7 @@ function App() {
   const [legacyTreasureLevel, setLegacyTreasureLevel] = useState(0);
   const [legacyStartCoinsLevel, setLegacyStartCoinsLevel] = useState(0);
   const [legacySavingsLevel, setLegacySavingsLevel] = useState(0);
+  const [legacyRecordLevel, setLegacyRecordLevel] = useState(0);
   const [enemyDefeats, setEnemyDefeats] = useState(0);
   const [highestPoints, setHighestPoints] = useState(0);
   const [highestAutoRate, setHighestAutoRate] = useState(0);
@@ -174,6 +175,7 @@ function App() {
     legacyTreasureLevel,
     legacyStartCoinsLevel,
     legacySavingsLevel,
+    legacyRecordLevel,
     shieldCharges,
     totalTaps,
     enemyDefeats,
@@ -193,9 +195,11 @@ function App() {
   const totalLegacyAvailable = getLegacyTotal(lifetimePoints);
   const pendingLegacyPoints = Math.max(0, totalLegacyAvailable - legacyEarnedTotal);
   const treasureDelayMultiplier = 1 - legacyTreasureLevel * 0.05;
+  const unlockedAchievementCount = achievements.filter((achievement) => totalTaps >= achievement.target).length;
   const savingsAchievementCount = savingsAchievements.filter((achievement) => savings >= achievement.target).length;
   const savingsRewardMultiplier = (1 + legacySavingsLevel * 0.2) * (1 + savingsAchievementCount * 0.05);
-  const achievementMultiplier = 1 + achievements.filter((achievement) => totalTaps >= achievement.target).length * 0.003;
+  const achievementBonusPerRecord = 0.001 + legacyRecordLevel * 0.002;
+  const achievementMultiplier = 1 + unlockedAchievementCount * achievementBonusPerRecord;
   const autoTapperMilestone = getMilestoneMultiplier(autoTapWorkers);
   const workshopMilestone = getMilestoneMultiplier(workshopCount);
   const factoryMilestone = getMilestoneMultiplier(factoryCount);
@@ -255,6 +259,7 @@ function App() {
       legacyTreasureLevel,
       legacyStartCoinsLevel,
       legacySavingsLevel,
+      legacyRecordLevel,
       shieldCharges,
       totalTaps,
       enemyDefeats,
@@ -282,6 +287,7 @@ function App() {
     legacyTreasureLevel,
     legacyStartCoinsLevel,
     legacySavingsLevel,
+    legacyRecordLevel,
     shieldCharges,
     savings,
     tapPower,
@@ -356,6 +362,7 @@ function App() {
         setLegacyTreasureLevel(Number(data.legacy_treasure_level ?? 0));
         setLegacyStartCoinsLevel(Number(data.legacy_start_coins_level ?? 0));
         setLegacySavingsLevel(Number(data.legacy_savings_level ?? 0));
+        setLegacyRecordLevel(Number(data.legacy_record_level ?? 0));
         setShieldCharges(Number(data.shield_charges));
         setTotalTaps(savedTotalTaps);
         setEnemyDefeats(Number(data.enemy_defeats));
@@ -401,6 +408,7 @@ function App() {
         legacy_treasure_level: state.legacyTreasureLevel,
         legacy_start_coins_level: state.legacyStartCoinsLevel,
         legacy_savings_level: state.legacySavingsLevel,
+        legacy_record_level: state.legacyRecordLevel,
         rebirth_tap_multiplier: 1,
         shield_charges: state.shieldCharges,
         total_taps: state.totalTaps,
@@ -996,6 +1004,17 @@ function App() {
                     환생하기
                   </ActionButton>
                 </article>
+                <article className="upgrade-card upgrade-card--worker">
+                  <div className="upgrade-card__icon" aria-hidden="true">📚</div>
+                  <div className="upgrade-card__details">
+                    <strong>기록 분석</strong>
+                    <span>직접 탭 업적 1개당 전체 생산 보너스를 0.2% 올려요</span>
+                    <small>레벨 {legacyRecordLevel}/5 · 업적 1개당 +{(achievementBonusPerRecord * 100).toFixed(1)}%</small>
+                  </div>
+                  <ActionButton onClick={() => buyLegacyUpgrade(legacyRecordLevel, 5, setLegacyRecordLevel)} disabled={legacyRecordLevel >= 5 || legacyPoints < getLegacyCost(legacyRecordLevel)}>
+                    {legacyRecordLevel >= 5 ? "완료" : `${getLegacyCost(legacyRecordLevel)} 기억`}
+                  </ActionButton>
+                </article>
               </div>
             ) : activePanel === "workers" ? (
               <div className="upgrade-list" role="tabpanel">
@@ -1185,7 +1204,7 @@ function App() {
             ) : (
               <div className="achievement-list" role="tabpanel">
                 <p className="achievement-summary">
-                  직접 탭 {totalTaps.toLocaleString()}회 · 달성 업적 {achievements.filter((achievement) => totalTaps >= achievement.target).length}개 · 전체 생산 +{((achievementMultiplier - 1) * 100).toFixed(1)}%
+                  직접 탭 {totalTaps.toLocaleString()}회 · 달성 업적 {unlockedAchievementCount}개 · 전체 생산 +{((achievementMultiplier - 1) * 100).toFixed(1)}%
                 </p>
                 {achievements.map((achievement) => {
                   const unlocked = totalTaps >= achievement.target;
