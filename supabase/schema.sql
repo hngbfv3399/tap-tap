@@ -5,6 +5,8 @@ create table if not exists public.game_states (
   tap_power bigint not null default 1,
   auto_tap_level integer not null default 0,
   auto_tap_power bigint not null default 1,
+  workshop_count integer not null default 0,
+  factory_count integer not null default 0,
   treasure_worker_level integer not null default 0,
   guardian_worker_level integer not null default 0,
   savings_points bigint not null default 0,
@@ -24,6 +26,12 @@ alter table public.game_states
 
 alter table public.game_states
   add column if not exists auto_tap_power bigint not null default 1;
+
+alter table public.game_states
+  add column if not exists workshop_count integer not null default 0;
+
+alter table public.game_states
+  add column if not exists factory_count integer not null default 0;
 
 alter table public.game_states
   add column if not exists treasure_worker_level integer not null default 0;

@@ -47,6 +47,12 @@ const getEnemyCount = (points: number) => {
   return 1;
 };
 
+const getMilestoneMultiplier = (count: number) =>
+  2 ** [10, 25, 50].filter((milestone) => count >= milestone).length;
+
+const getNextMilestone = (count: number) =>
+  [10, 25, 50].find((milestone) => count < milestone) ?? null;
+
 const formatScore = (value: number) => {
   const units = [
     { value: 1_000_000_000, suffix: "B" },
@@ -100,6 +106,8 @@ function App() {
   const [tapPower, setTapPower] = useState(1);
   const [autoTapWorkers, setAutoTapWorkers] = useState(0);
   const [autoTapPower, setAutoTapPower] = useState(1);
+  const [workshopCount, setWorkshopCount] = useState(0);
+  const [factoryCount, setFactoryCount] = useState(0);
   const [guardianWorkerLevel, setGuardianWorkerLevel] = useState(0);
   const [savings, setSavings] = useState(0);
   const [rebirthCount, setRebirthCount] = useState(0);
@@ -134,6 +142,8 @@ function App() {
     tapPower,
     autoTapWorkers,
     autoTapPower,
+    workshopCount,
+    factoryCount,
     guardianWorkerLevel,
     savings,
     rebirthCount,
@@ -147,12 +157,21 @@ function App() {
   const powerUpgradeCost = Math.ceil(50 * 1.2 ** (tapPower - 1));
   const autoTapperCost = Math.ceil(20 * 1.15 ** autoTapWorkers);
   const autoTapPowerCost = Math.ceil(40 * 1.15 ** (autoTapPower - 1));
+  const workshopCost = Math.ceil(120 * 1.15 ** workshopCount);
+  const factoryCost = Math.ceil(700 * 1.15 ** factoryCount);
   const guardianWorkerCost = 25 + guardianWorkerLevel * 15;
   const shieldCost = 18;
   const rebirthCost = (rebirthCount + 1) * 1_000;
   const generationMultiplier = 1 + rebirthCount * 0.05;
-  const activeTapPower = Math.max(1, Math.floor(tapPower * generationMultiplier * (buff?.multiplier ?? 1)));
-  const activeAutoRate = Math.floor(autoTapWorkers * autoTapPower * generationMultiplier);
+  const achievementMultiplier = 1 + achievements.filter((achievement) => totalTaps >= achievement.target).length * 0.003;
+  const autoTapperMilestone = getMilestoneMultiplier(autoTapWorkers);
+  const workshopMilestone = getMilestoneMultiplier(workshopCount);
+  const factoryMilestone = getMilestoneMultiplier(factoryCount);
+  const workshopBonus = 1 + workshopCount * 0.05 * workshopMilestone;
+  const baseAutoRate = autoTapWorkers * autoTapPower * autoTapperMilestone * workshopBonus;
+  const factoryRate = factoryCount * 20 * factoryMilestone;
+  const activeTapPower = Math.max(1, Math.floor(tapPower * generationMultiplier * achievementMultiplier * (buff?.multiplier ?? 1)));
+  const activeAutoRate = Math.floor((baseAutoRate + factoryRate) * generationMultiplier * achievementMultiplier);
   const enemyTheftRate = Math.max(0.01, 0.05 - guardianWorkerLevel * 0.005);
   const nextSavingsInterest = Math.floor(savings * 0.05);
 
@@ -187,6 +206,8 @@ function App() {
       tapPower,
       autoTapWorkers,
       autoTapPower,
+      workshopCount,
+      factoryCount,
       guardianWorkerLevel,
       savings,
       rebirthCount,
@@ -199,6 +220,8 @@ function App() {
   }, [
     autoTapWorkers,
     autoTapPower,
+    workshopCount,
+    factoryCount,
     guardianWorkerLevel,
     coins,
     enemyDefeats,
@@ -256,6 +279,8 @@ function App() {
         setTapPower(Number(data.tap_power));
         setAutoTapWorkers(savedWorkers);
         setAutoTapPower(savedAutoTapPower);
+        setWorkshopCount(Number(data.workshop_count ?? 0));
+        setFactoryCount(Number(data.factory_count ?? 0));
         setGuardianWorkerLevel(Number(data.guardian_worker_level ?? 0));
         setSavings(Number(data.savings_points ?? 0));
         setRebirthCount(Number(data.rebirth_count));
@@ -290,6 +315,8 @@ function App() {
         tap_power: state.tapPower,
         auto_tap_level: state.autoTapWorkers,
         auto_tap_power: state.autoTapPower,
+        workshop_count: state.workshopCount,
+        factory_count: state.factoryCount,
         guardian_worker_level: state.guardianWorkerLevel,
         savings_points: state.savings,
         rebirth_count: state.rebirthCount,
@@ -497,6 +524,20 @@ function App() {
     setAutoTapPower((currentPower) => currentPower + 1);
   };
 
+  const buyWorkshop = () => {
+    if (autoTapWorkers < 10 || coins < workshopCost) return;
+
+    setCoins((currentCoins) => currentCoins - workshopCost);
+    setWorkshopCount((currentCount) => currentCount + 1);
+  };
+
+  const buyFactory = () => {
+    if (workshopCount < 5 || coins < factoryCost) return;
+
+    setCoins((currentCoins) => currentCoins - factoryCost);
+    setFactoryCount((currentCount) => currentCount + 1);
+  };
+
   const upgradeGuardianWorker = () => {
     if (coins < guardianWorkerCost) return;
 
@@ -540,6 +581,8 @@ function App() {
     setTapPower(1);
     setAutoTapWorkers(0);
     setAutoTapPower(1);
+    setWorkshopCount(0);
+    setFactoryCount(0);
     setGuardianWorkerLevel(0);
     setShieldCharges(0);
     setBuff(null);
@@ -846,10 +889,43 @@ function App() {
                   <div className="upgrade-card__details">
                     <strong>자동 탭퍼 고용</strong>
                     <span>작업자 한 명이 초당 +{autoTapPower}/s를 만들어요</span>
-                    <small>{autoTapWorkers}명 · 합계 초당 +{activeAutoRate}/s · 가격은 매번 15% 상승</small>
+                    <small>
+                      {autoTapWorkers}명 · 마일스톤 ×{autoTapperMilestone}
+                      {getNextMilestone(autoTapWorkers) ? ` · 다음 ${getNextMilestone(autoTapWorkers)}명` : " · 모든 마일스톤 완료"}
+                    </small>
                   </div>
                   <ActionButton onClick={upgradeAutoTapper} disabled={coins < autoTapperCost}>
                     {autoTapperCost} 코인
+                  </ActionButton>
+                </article>
+                <article className="upgrade-card upgrade-card--worker">
+                  <div className="upgrade-card__icon" aria-hidden="true">🛠️</div>
+                  <div className="upgrade-card__details">
+                    <strong>탭 작업대</strong>
+                    <span>자동 탭퍼 전체 생산량을 작업대 1개당 5% 높여요</span>
+                    <small>
+                      {autoTapWorkers < 10
+                        ? `자동 탭퍼 ${autoTapWorkers}/10명 필요`
+                        : `${workshopCount}개 · 자동 탭퍼 보너스 +${(workshopCount * 5 * workshopMilestone).toFixed(0)}% · 마일스톤 ×${workshopMilestone}`}
+                    </small>
+                  </div>
+                  <ActionButton onClick={buyWorkshop} disabled={autoTapWorkers < 10 || coins < workshopCost}>
+                    {autoTapWorkers < 10 ? "잠김" : `${workshopCost} 코인`}
+                  </ActionButton>
+                </article>
+                <article className="upgrade-card upgrade-card--worker">
+                  <div className="upgrade-card__icon" aria-hidden="true">🏭</div>
+                  <div className="upgrade-card__details">
+                    <strong>탭 공장</strong>
+                    <span>독립적으로 초당 20포인트를 생산해요</span>
+                    <small>
+                      {workshopCount < 5
+                        ? `탭 작업대 ${workshopCount}/5개 필요`
+                        : `${factoryCount}개 · 기본 초당 +${factoryRate} · 마일스톤 ×${factoryMilestone}`}
+                    </small>
+                  </div>
+                  <ActionButton onClick={buyFactory} disabled={workshopCount < 5 || coins < factoryCost}>
+                    {workshopCount < 5 ? "잠김" : `${factoryCost} 코인`}
                   </ActionButton>
                 </article>
                 <article className="upgrade-card upgrade-card--worker">
@@ -877,7 +953,9 @@ function App() {
               </div>
             ) : (
               <div className="achievement-list" role="tabpanel">
-                <p className="achievement-summary">직접 탭 {totalTaps.toLocaleString()}회</p>
+                <p className="achievement-summary">
+                  직접 탭 {totalTaps.toLocaleString()}회 · 달성 업적 {achievements.filter((achievement) => totalTaps >= achievement.target).length}개 · 전체 생산 +{((achievementMultiplier - 1) * 100).toFixed(1)}%
+                </p>
                 {achievements.map((achievement) => {
                   const unlocked = totalTaps >= achievement.target;
                   const progress = Math.min((totalTaps / achievement.target) * 100, 100);
@@ -923,7 +1001,7 @@ function App() {
             <p className="rebirth-confirm__cost">{rebirthCost.toLocaleString()}코인이 필요해요.</p>
             <div className="rebirth-confirm__notice">
               <strong>초기화되는 것</strong>
-              <span>포인트, 코인, 탭·자동 탭퍼·수호 작업자 강화, 보호막, 진행 중인 이벤트</span>
+              <span>포인트, 코인, 탭·작업자·작업대·공장 강화, 보호막, 진행 중인 이벤트</span>
               <strong>다음 세대에 남는 것</strong>
               <span>모든 생산량 +5%, 적금 5% 이자와 이자 포인트, 직접 탭 업적</span>
             </div>
