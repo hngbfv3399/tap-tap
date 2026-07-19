@@ -602,11 +602,6 @@ function App() {
         {rewardNotice && <p className="reward-notice">{rewardNotice}</p>}
         <strong className="game__score">{formatScore(points)}</strong>
         <p className="game__auto-rate">초당 +{activeAutoRate}/s</p>
-        <div className="savings-status" aria-label={`세대 적금 ${savings.toLocaleString()} 포인트`}>
-          <span aria-hidden="true">🏦</span>
-          <strong>세대 적금 {formatScore(savings)}</strong>
-          <small>다음 환생 +{formatScore(nextSavingsInterest)}</small>
-        </div>
 
         <button
           className="tap-button"
@@ -657,14 +652,6 @@ function App() {
               +{activeTapPower}
             </span>
           ))}
-        </button>
-        <button
-          className="savings-button"
-          type="button"
-          onClick={depositSavings}
-          disabled={points < 2}
-        >
-          적금 탭 · 포인트 절반 넣기
         </button>
         {treasure && (
           <button
@@ -795,6 +782,17 @@ function App() {
                   </div>
                   <ActionButton onClick={buyShield} disabled={coins < shieldCost}>
                     {shieldCost} 코인
+                  </ActionButton>
+                </article>
+                <article className="upgrade-card upgrade-card--savings">
+                  <div className="upgrade-card__icon" aria-hidden="true">🏦</div>
+                  <div className="upgrade-card__details">
+                    <strong>세대 적금</strong>
+                    <span>현재 포인트의 절반을 적금해 다음 세대에 남겨요</span>
+                    <small>적금 {formatScore(savings)} · 다음 환생 이자 +{formatScore(nextSavingsInterest)}</small>
+                  </div>
+                  <ActionButton onClick={depositSavings} disabled={points < 2}>
+                    절반 넣기
                   </ActionButton>
                 </article>
                 <article className="upgrade-card upgrade-card--rebirth">

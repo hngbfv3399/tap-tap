@@ -183,27 +183,6 @@
   transform: translateY(-20px);
 }
 
-.savings-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: -46px 0 20px;
-  padding: 7px 11px;
-  border-radius: 14px;
-  background: #f7f0ff;
-  color: #7048b7;
-  font-size: 12px;
-}
-
-.savings-status strong {
-  font-size: 12px;
-}
-
-.savings-status small {
-  color: #8b6db3;
-  font-size: 11px;
-}
-
 .tap-button {
   position: relative;
   display: grid;
@@ -237,24 +216,6 @@
 .tap-button:focus-visible {
   outline: 4px solid #a8d3ff;
   outline-offset: 6px;
-}
-
-.savings-button {
-  min-height: 42px;
-  margin-top: 26px;
-  padding: 0 16px;
-  border: 0;
-  border-radius: 13px;
-  background: #f0e5ff;
-  color: #7048b7;
-  font-size: 14px;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.savings-button:disabled {
-  cursor: default;
-  opacity: 0.45;
 }
 
 .tap-button__shine {
@@ -603,6 +564,10 @@
 
 .upgrade-card--shield {
   background: #eef8ff;
+}
+
+.upgrade-card--savings {
+  background: #f7f0ff;
 }
 
 .upgrade-card--rebirth {
