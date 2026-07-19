@@ -5,6 +5,7 @@ create table if not exists public.game_states (
   tap_power bigint not null default 1,
   auto_tap_level integer not null default 0,
   rebirth_count integer not null default 0,
+  rebirth_tap_multiplier bigint not null default 1,
   shield_charges integer not null default 0,
   total_taps bigint not null default 0,
   enemy_defeats bigint not null default 0,
@@ -13,6 +14,9 @@ create table if not exists public.game_states (
   last_seen_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.game_states
+  add column if not exists rebirth_tap_multiplier bigint not null default 1;
 
 create table if not exists public.rebirth_history (
   id bigint generated always as identity primary key,

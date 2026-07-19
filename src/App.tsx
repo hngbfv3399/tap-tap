@@ -98,6 +98,7 @@ function App() {
   const [tapPower, setTapPower] = useState(1);
   const [autoTapLevel, setAutoTapLevel] = useState(0);
   const [rebirthCount, setRebirthCount] = useState(0);
+  const [rebirthTapMultiplier, setRebirthTapMultiplier] = useState(1);
   const [enemyDefeats, setEnemyDefeats] = useState(0);
   const [highestPoints, setHighestPoints] = useState(0);
   const [highestAutoRate, setHighestAutoRate] = useState(0);
@@ -126,6 +127,7 @@ function App() {
     tapPower,
     autoTapLevel,
     rebirthCount,
+    rebirthTapMultiplier,
     shieldCharges,
     totalTaps,
     enemyDefeats,
@@ -137,7 +139,7 @@ function App() {
   const autoTapCost = 12 + autoTapLevel * 8;
   const shieldCost = 18;
   const rebirthCost = (rebirthCount + 1) * 1_000;
-  const activeTapPower = tapPower * (buff?.type === "tap" ? 2 : 1);
+  const activeTapPower = tapPower * rebirthTapMultiplier * (buff?.type === "tap" ? 2 : 1);
   const activeAutoRate = autoTapLevel * (buff?.type === "auto" ? 2 : 1);
 
   useEffect(() => {
@@ -159,6 +161,7 @@ function App() {
       tapPower,
       autoTapLevel,
       rebirthCount,
+      rebirthTapMultiplier,
       shieldCharges,
       totalTaps,
       enemyDefeats,
@@ -173,6 +176,7 @@ function App() {
     highestPoints,
     points,
     rebirthCount,
+    rebirthTapMultiplier,
     shieldCharges,
     tapPower,
     totalTaps,
@@ -220,6 +224,7 @@ function App() {
         setTapPower(Number(data.tap_power));
         setAutoTapLevel(Number(data.auto_tap_level));
         setRebirthCount(Number(data.rebirth_count));
+        setRebirthTapMultiplier(Number(data.rebirth_tap_multiplier ?? 1));
         setShieldCharges(Number(data.shield_charges));
         setTotalTaps(Number(data.total_taps));
         setEnemyDefeats(Number(data.enemy_defeats));
@@ -251,6 +256,7 @@ function App() {
         tap_power: state.tapPower,
         auto_tap_level: state.autoTapLevel,
         rebirth_count: state.rebirthCount,
+        rebirth_tap_multiplier: state.rebirthTapMultiplier,
         shield_charges: state.shieldCharges,
         total_taps: state.totalTaps,
         enemy_defeats: state.enemyDefeats,
@@ -451,6 +457,7 @@ function App() {
     setCoins(0);
     setTapPower((currentPower) => Math.max(1, Math.floor(currentPower / 2)));
     setAutoTapLevel((currentLevel) => currentLevel * 2);
+    setRebirthTapMultiplier((currentMultiplier) => currentMultiplier * 2);
     setShieldCharges(0);
     setBuff(null);
     setTreasure(null);
@@ -561,7 +568,7 @@ function App() {
                       } as CSSProperties
                     }
                   >
-                    ☝️
+                    🧑
                   </span>
                 );
               })}
@@ -681,8 +688,10 @@ function App() {
                   <div className="upgrade-card__icon" aria-hidden="true">☝️</div>
                   <div className="upgrade-card__details">
                     <strong>강한 탭</strong>
-                    <span>탭 포인트가 구매할 때마다 +1 늘어나요</span>
-                    <small>+{tapPower} 포인트 → +{tapPower + 1} 포인트</small>
+                    <span>탭 포인트가 구매할 때마다 +{rebirthTapMultiplier} 늘어나요</span>
+                    <small>
+                      +{tapPower * rebirthTapMultiplier} 포인트 → +{(tapPower + 1) * rebirthTapMultiplier} 포인트
+                    </small>
                   </div>
                   <ActionButton onClick={buyPowerUpgrade} disabled={coins < powerUpgradeCost}>
                     {powerUpgradeCost} 코인
@@ -692,7 +701,7 @@ function App() {
                   <div className="upgrade-card__icon" aria-hidden="true">🤖</div>
                   <div className="upgrade-card__details">
                     <strong>오토 탭</strong>
-                    <span>자동 포인터 1개를 추가해요</span>
+                    <span>자동 탭을 해주는 사람 1명을 추가해요</span>
                     <small>현재 레벨 {autoTapLevel} · 초당 +{autoTapLevel}/s</small>
                   </div>
                   <ActionButton onClick={buyAutoTapUpgrade} disabled={coins < autoTapCost}>
@@ -714,7 +723,7 @@ function App() {
                   <div className="upgrade-card__icon" aria-hidden="true">✨</div>
                   <div className="upgrade-card__details">
                     <strong>누군가의 흔적</strong>
-                    <span>탭 파워는 절반, 오토 탭은 2배로 다음 세대에 남겨요</span>
+                    <span>탭 강화 효과와 오토 탭을 2배로 다음 세대에 남겨요</span>
                     <small>환생 {rebirthCount}회 · 다음 환생 {rebirthCost.toLocaleString()} 코인</small>
                   </div>
                   <ActionButton onClick={() => setIsRebirthConfirmOpen(true)} disabled={coins < rebirthCost}>
@@ -772,7 +781,7 @@ function App() {
               <strong>초기화되는 것</strong>
               <span>포인트, 코인, 보호막, 진행 중인 이벤트</span>
               <strong>다음 세대에 남는 것</strong>
-              <span>탭 파워의 절반, 오토 탭 2배, 직접 탭 업적</span>
+              <span>탭 강화 효과 2배, 오토 탭 2배, 직접 탭 업적</span>
             </div>
             <div className="rebirth-confirm__actions">
               <ActionButton tone="weak" onClick={() => setIsRebirthConfirmOpen(false)}>
