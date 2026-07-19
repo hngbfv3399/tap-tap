@@ -9,7 +9,8 @@ type Pop = {
 };
 
 type Buff = {
-  multiplier: 2 | 10;
+  target: "tap" | "auto";
+  multiplier: 2 | 3 | 10;
   remaining: number;
   duration: number;
 };
@@ -25,7 +26,7 @@ type Enemy = {
 };
 
 type Treasure = {
-  type: "tap-2" | "tap-10" | "cookie";
+  type: "tap-2" | "tap-10" | "cookie" | "auto-3";
   x: number;
   y: number;
 };
@@ -117,6 +118,7 @@ function App() {
   const [autoTapPower, setAutoTapPower] = useState(1);
   const [workshopCount, setWorkshopCount] = useState(0);
   const [factoryCount, setFactoryCount] = useState(0);
+  const [researchLabCount, setResearchLabCount] = useState(0);
   const [guardianWorkerLevel, setGuardianWorkerLevel] = useState(0);
   const [savings, setSavings] = useState(0);
   const [rebirthCount, setRebirthCount] = useState(0);
@@ -163,6 +165,7 @@ function App() {
     autoTapPower,
     workshopCount,
     factoryCount,
+    researchLabCount,
     guardianWorkerLevel,
     savings,
     rebirthCount,
@@ -188,6 +191,7 @@ function App() {
   const autoTapPowerCost = Math.ceil(40 * 1.15 ** (autoTapPower - 1));
   const workshopCost = Math.ceil(120 * 1.15 ** workshopCount);
   const factoryCost = Math.ceil(700 * 1.15 ** factoryCount);
+  const researchLabCost = Math.ceil(5_000 * 1.15 ** researchLabCount);
   const guardianWorkerCost = 25 + guardianWorkerLevel * 15;
   const shieldCost = 18;
   const rebirthCost = (rebirthCount + 1) * 1_000;
@@ -203,13 +207,16 @@ function App() {
   const autoTapperMilestone = getMilestoneMultiplier(autoTapWorkers);
   const workshopMilestone = getMilestoneMultiplier(workshopCount);
   const factoryMilestone = getMilestoneMultiplier(factoryCount);
+  const researchLabMilestone = getMilestoneMultiplier(researchLabCount);
   const workshopBonus = 1 + workshopCount * 0.05 * workshopMilestone;
   const baseAutoRate = autoTapWorkers * autoTapPower * autoTapperMilestone * workshopBonus;
   const factoryRate = factoryCount * 20 * factoryMilestone;
+  const researchLabRate = researchLabCount * 80 * researchLabMilestone;
   const autoTapperRate = Math.floor(baseAutoRate * generationMultiplier * achievementMultiplier);
   const factoryProductionRate = Math.floor(factoryRate * generationMultiplier * achievementMultiplier);
-  const activeTapPower = Math.max(1, Math.floor(tapPower * generationMultiplier * achievementMultiplier * (buff?.multiplier ?? 1)));
-  const activeAutoRate = Math.floor((baseAutoRate + factoryRate) * generationMultiplier * achievementMultiplier);
+  const researchLabProductionRate = Math.floor(researchLabRate * generationMultiplier * achievementMultiplier);
+  const activeTapPower = Math.max(1, Math.floor(tapPower * generationMultiplier * achievementMultiplier * (buff?.target === "tap" ? buff.multiplier : 1)));
+  const activeAutoRate = Math.floor((baseAutoRate + factoryRate + researchLabRate) * generationMultiplier * achievementMultiplier * (buff?.target === "auto" ? buff.multiplier : 1));
   const enemyTheftRate = Math.max(0.01, 0.05 - guardianWorkerLevel * 0.005);
   const baseCookieReward = Math.max(25, activeAutoRate * 120 + activeTapPower * 100);
   const savingsCookieBonus = Math.min(Math.floor(savings * 0.01 * savingsRewardMultiplier), baseCookieReward * 2);
@@ -247,6 +254,7 @@ function App() {
       autoTapPower,
       workshopCount,
       factoryCount,
+      researchLabCount,
       guardianWorkerLevel,
       savings,
       rebirthCount,
@@ -271,6 +279,7 @@ function App() {
     autoTapPower,
     workshopCount,
     factoryCount,
+    researchLabCount,
     guardianWorkerLevel,
     coins,
     enemyDefeats,
@@ -334,6 +343,7 @@ function App() {
         const savedAutoTapPower = Number(data.auto_tap_power ?? 1);
         const savedWorkshops = Number(data.workshop_count ?? 0);
         const savedFactories = Number(data.factory_count ?? 0);
+        const savedResearchLabs = Number(data.research_lab_count ?? 0);
         const savedRebirthCount = Number(data.rebirth_count);
         const savedTotalTaps = Number(data.total_taps);
         const savedOfflineLevel = Number(data.legacy_offline_level ?? 0);
@@ -341,8 +351,9 @@ function App() {
         const savedAutoBase = savedWorkers * savedAutoTapPower * getMilestoneMultiplier(savedWorkers)
           * (1 + savedWorkshops * 0.05 * getMilestoneMultiplier(savedWorkshops));
         const savedFactoryRate = savedFactories * 20 * getMilestoneMultiplier(savedFactories);
+        const savedResearchLabRate = savedResearchLabs * 80 * getMilestoneMultiplier(savedResearchLabs);
         const savedProductionMultiplier = (1 + savedRebirthCount * 0.05) * (1 + Number(data.legacy_production_level ?? 0) * 0.02);
-        const offlineReward = Math.floor(offlineSeconds * (savedAutoBase + savedFactoryRate) * savedProductionMultiplier * savedAchievementMultiplier * (1 + savedOfflineLevel * 0.1));
+        const offlineReward = Math.floor(offlineSeconds * (savedAutoBase + savedFactoryRate + savedResearchLabRate) * savedProductionMultiplier * savedAchievementMultiplier * (1 + savedOfflineLevel * 0.1));
         setPoints(Number(data.points) + offlineReward);
         setLifetimePoints(Number(data.lifetime_points ?? data.highest_points ?? data.points) + offlineReward);
         setCoins(Number(data.coins));
@@ -351,6 +362,7 @@ function App() {
         setAutoTapPower(savedAutoTapPower);
         setWorkshopCount(savedWorkshops);
         setFactoryCount(savedFactories);
+        setResearchLabCount(savedResearchLabs);
         setGuardianWorkerLevel(Number(data.guardian_worker_level ?? 0));
         setSavings(Number(data.savings_points ?? 0));
         setRebirthCount(savedRebirthCount);
@@ -396,6 +408,7 @@ function App() {
         auto_tap_power: state.autoTapPower,
         workshop_count: state.workshopCount,
         factory_count: state.factoryCount,
+        research_lab_count: state.researchLabCount,
         guardian_worker_level: state.guardianWorkerLevel,
         savings_points: state.savings,
         rebirth_count: state.rebirthCount,
@@ -552,7 +565,7 @@ function App() {
         const height = contentBounds?.height ?? 600;
         const rewardRoll = Math.random();
         const nextTreasure: Treasure = {
-          type: rewardRoll < 0.7 ? "tap-2" : rewardRoll < 0.73 ? "tap-10" : "cookie",
+          type: rewardRoll < 0.67 ? "tap-2" : rewardRoll < 0.7 ? "tap-10" : researchLabCount > 0 && rewardRoll < 0.8 ? "auto-3" : "cookie",
           x: padding + Math.random() * Math.max(0, width - treasureSize - padding * 2),
           y: padding + Math.random() * Math.max(0, height - treasureSize - padding * 2),
         };
@@ -564,7 +577,7 @@ function App() {
 
     scheduleTreasure(FIRST_TREASURE_DELAY);
     return () => window.clearTimeout(timeoutId);
-  }, [isGameReady, treasureDelayMultiplier]);
+  }, [isGameReady, researchLabCount, treasureDelayMultiplier]);
 
   const addPoint = (event: React.PointerEvent<HTMLButtonElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -629,6 +642,13 @@ function App() {
     setFactoryCount((currentCount) => currentCount + 1);
   };
 
+  const buyResearchLab = () => {
+    if (factoryCount < 3 || coins < researchLabCost) return;
+
+    setCoins((currentCoins) => currentCoins - researchLabCost);
+    setResearchLabCount((currentCount) => currentCount + 1);
+  };
+
   const upgradeGuardianWorker = () => {
     if (coins < guardianWorkerCost) return;
 
@@ -676,6 +696,7 @@ function App() {
     setAutoTapPower(1);
     setWorkshopCount(0);
     setFactoryCount(0);
+    setResearchLabCount(0);
     setGuardianWorkerLevel(0);
     setShieldCharges(0);
     setBuff(null);
@@ -709,8 +730,9 @@ function App() {
       setRewardNotice(`행운의 쿠키! +${formatScore(cookieReward)} 포인트`);
       window.setTimeout(() => setRewardNotice(null), 1_400);
     } else {
-      const duration = treasure.type === "tap-10" ? 5 : 15;
-      setBuff({ multiplier: treasure.type === "tap-10" ? 10 : 2, remaining: duration, duration });
+      const isAutoBoost = treasure.type === "auto-3";
+      const duration = treasure.type === "tap-10" ? 5 : isAutoBoost ? 10 : 15;
+      setBuff({ target: isAutoBoost ? "auto" : "tap", multiplier: treasure.type === "tap-10" ? 10 : isAutoBoost ? 3 : 2, remaining: duration, duration });
     }
     setTreasure(null);
     treasureRef.current = null;
@@ -771,7 +793,7 @@ function App() {
         {buff && (
           <div className="buff-status" aria-live="polite">
             <div>
-              <strong>탭 포인트 {buff.multiplier}배</strong>
+              <strong>{buff.target === "tap" ? "탭 포인트" : "자동 생산"} {buff.multiplier}배</strong>
               <span>{buff.remaining}초</span>
             </div>
             <div className="buff-status__bar">
@@ -1063,6 +1085,21 @@ function App() {
                   </ActionButton>
                 </article>
                 <article className="upgrade-card upgrade-card--worker">
+                  <div className="upgrade-card__icon" aria-hidden="true">🔬</div>
+                  <div className="upgrade-card__details">
+                    <strong>탭 연구소</strong>
+                    <span>독립적으로 초당 80포인트를 생산하고 자동 생산 3배 보물을 해금해요</span>
+                    <small>
+                      {factoryCount < 3
+                        ? `탭 공장 ${factoryCount}/3개 필요`
+                        : `${researchLabCount}개 · 기본 초당 +${researchLabRate} · 마일스톤 ×${researchLabMilestone}`}
+                    </small>
+                  </div>
+                  <ActionButton onClick={buyResearchLab} disabled={factoryCount < 3 || coins < researchLabCost}>
+                    {factoryCount < 3 ? "잠김" : `${researchLabCost} 코인`}
+                  </ActionButton>
+                </article>
+                <article className="upgrade-card upgrade-card--worker">
                   <div className="upgrade-card__icon" aria-hidden="true">⚙️</div>
                   <div className="upgrade-card__details">
                     <strong>자동 탭 강화</strong>
@@ -1184,6 +1221,14 @@ function App() {
                     <small>초당 +{formatScore(factoryProductionRate)}/s</small>
                   </div>
                 </article>
+                <article className="upgrade-card">
+                  <div className="upgrade-card__icon" aria-hidden="true">🔬</div>
+                  <div className="upgrade-card__details">
+                    <strong>탭 연구소 기여</strong>
+                    <span>연구소 {researchLabCount}개 · 마일스톤 ×{researchLabMilestone}</span>
+                    <small>초당 +{formatScore(researchLabProductionRate)}/s</small>
+                  </div>
+                </article>
                 <article className="upgrade-card upgrade-card--rebirth">
                   <div className="upgrade-card__icon" aria-hidden="true">✨</div>
                   <div className="upgrade-card__details">
@@ -1278,7 +1323,7 @@ function App() {
             <p className="rebirth-confirm__cost">세대 기억 +{pendingLegacyPoints}개를 얻어요.</p>
             <div className="rebirth-confirm__notice">
               <strong>초기화되는 것</strong>
-              <span>포인트, 코인, 탭·작업자·작업대·공장 강화, 보호막, 진행 중인 이벤트</span>
+              <span>포인트, 코인, 탭·작업자·작업대·공장·연구소 강화, 보호막, 진행 중인 이벤트</span>
               <strong>다음 세대에 남는 것</strong>
               <span>세대 생산 +5%, 세대 기억과 영구 연구, 적금 원금, 직접 탭 업적</span>
             </div>
