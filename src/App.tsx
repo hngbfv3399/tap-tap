@@ -416,7 +416,7 @@ function App() {
     if (coins < powerUpgradeCost) return;
 
     setCoins((currentCoins) => currentCoins - powerUpgradeCost);
-    setTapPower((currentPower) => currentPower * 2);
+    setTapPower((currentPower) => currentPower + 1);
   };
 
   const buyAutoTapUpgrade = () => {
@@ -681,8 +681,8 @@ function App() {
                   <div className="upgrade-card__icon" aria-hidden="true">☝️</div>
                   <div className="upgrade-card__details">
                     <strong>강한 탭</strong>
-                    <span>탭 포인트가 구매할 때마다 2배가 돼요</span>
-                    <small>{tapPower} 포인트 → {tapPower * 2} 포인트</small>
+                    <span>탭 포인트가 구매할 때마다 +1 늘어나요</span>
+                    <small>+{tapPower} 포인트 → +{tapPower + 1} 포인트</small>
                   </div>
                   <ActionButton onClick={buyPowerUpgrade} disabled={coins < powerUpgradeCost}>
                     {powerUpgradeCost} 코인
