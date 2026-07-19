@@ -129,11 +129,11 @@ function App() {
   });
   const exchangeableCoins = Math.floor(points / 10);
   const powerUpgradeCost = tapPower * 3;
-  const autoTapCost = 12 + autoTapLevel * 8;
+  const autoTapCost = Math.round(12 * 1.7 ** autoTapLevel);
   const shieldCost = 18;
   const rebirthCost = (rebirthCount + 1) * 1_000;
   const activeTapPower = tapPower * (buff?.type === "tap" ? 2 : 1);
-  const activeAutoRate = autoTapLevel * (buff?.type === "auto" ? 2 : 1);
+  const activeAutoRate = autoTapLevel * tapPower * (buff?.type === "auto" ? 2 : 1);
 
   useEffect(() => {
     pointsRef.current = points;
@@ -667,7 +667,7 @@ function App() {
                   <div className="upgrade-card__icon" aria-hidden="true">🤖</div>
                   <div className="upgrade-card__details">
                     <strong>오토 탭</strong>
-                    <span>매초 자동으로 포인트를 얻어요</span>
+                    <span>현재 탭 파워에 비례해 자동으로 포인트를 얻어요</span>
                     <small>현재 레벨 {autoTapLevel} · 초당 +{autoTapLevel}/s</small>
                   </div>
                   <ActionButton onClick={buyAutoTapUpgrade} disabled={coins < autoTapCost}>
