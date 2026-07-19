@@ -9,7 +9,7 @@ type Pop = {
 };
 
 type Buff = {
-  type: "tap" | "auto";
+  multiplier: 2 | 10;
   remaining: number;
 };
 
@@ -24,7 +24,7 @@ type Enemy = {
 };
 
 type Treasure = {
-  type: "tap" | "auto";
+  type: "tap-2" | "tap-10" | "cookie";
   x: number;
   y: number;
 };
@@ -97,8 +97,9 @@ function App() {
   const [coins, setCoins] = useState(0);
   const [tapPower, setTapPower] = useState(1);
   const [autoTapWorkers, setAutoTapWorkers] = useState(0);
-  const [treasureWorkerLevel, setTreasureWorkerLevel] = useState(0);
+  const [autoTapPower, setAutoTapPower] = useState(1);
   const [guardianWorkerLevel, setGuardianWorkerLevel] = useState(0);
+  const [savings, setSavings] = useState(0);
   const [rebirthCount, setRebirthCount] = useState(0);
   const [rebirthTapMultiplier, setRebirthTapMultiplier] = useState(1);
   const [enemyDefeats, setEnemyDefeats] = useState(0);
@@ -129,8 +130,9 @@ function App() {
     coins,
     tapPower,
     autoTapWorkers,
-    treasureWorkerLevel,
+    autoTapPower,
     guardianWorkerLevel,
+    savings,
     rebirthCount,
     rebirthTapMultiplier,
     shieldCharges,
@@ -141,15 +143,16 @@ function App() {
   });
   const exchangeableCoins = Math.floor(points / 10);
   const powerUpgradeCost = tapPower * 3;
-  const autoTapperCost = 12 + autoTapWorkers * 8;
-  const treasureWorkerCost = 20 + treasureWorkerLevel * 12;
+  const autoTapperCost = Math.ceil(20 * 1.05 ** autoTapWorkers);
+  const autoTapPowerCost = Math.ceil(30 * 1.05 ** (autoTapPower - 1));
   const guardianWorkerCost = 25 + guardianWorkerLevel * 15;
   const shieldCost = 18;
   const rebirthCost = (rebirthCount + 1) * 1_000;
-  const activeTapPower = tapPower * rebirthTapMultiplier * (buff?.type === "tap" ? 2 : 1);
-  const activeAutoRate = autoTapWorkers * (buff?.type === "auto" ? 2 : 1);
-  const treasureChance = Math.min(0.2, 0.04 + treasureWorkerLevel * 0.01);
+  const activeTapPower = tapPower * rebirthTapMultiplier * (buff?.multiplier ?? 1);
+  const activeAutoRate = autoTapWorkers * autoTapPower;
+  const treasureChance = 0.04;
   const enemyTheftRate = Math.max(0.01, 0.05 - guardianWorkerLevel * 0.005);
+  const nextSavingsInterest = Math.floor(savings * 0.25);
 
   useEffect(() => {
     pointsRef.current = points;
@@ -173,8 +176,9 @@ function App() {
       coins,
       tapPower,
       autoTapWorkers,
-      treasureWorkerLevel,
+      autoTapPower,
       guardianWorkerLevel,
+      savings,
       rebirthCount,
       rebirthTapMultiplier,
       shieldCharges,
@@ -185,7 +189,7 @@ function App() {
     };
   }, [
     autoTapWorkers,
-    treasureWorkerLevel,
+    autoTapPower,
     guardianWorkerLevel,
     coins,
     enemyDefeats,
@@ -195,6 +199,7 @@ function App() {
     rebirthCount,
     rebirthTapMultiplier,
     shieldCharges,
+    savings,
     tapPower,
     totalTaps,
   ]);
@@ -236,13 +241,15 @@ function App() {
           Math.max(0, Math.floor((Date.now() - new Date(data.last_seen_at).getTime()) / 1000)),
         );
         const savedWorkers = Number(data.auto_tap_level);
-        const offlineReward = offlineSeconds * savedWorkers;
+        const savedAutoTapPower = Number(data.auto_tap_power ?? 1);
+        const offlineReward = offlineSeconds * savedWorkers * savedAutoTapPower;
         setPoints(Number(data.points) + offlineReward);
         setCoins(Number(data.coins));
         setTapPower(Number(data.tap_power));
         setAutoTapWorkers(savedWorkers);
-        setTreasureWorkerLevel(Number(data.treasure_worker_level ?? 0));
+        setAutoTapPower(savedAutoTapPower);
         setGuardianWorkerLevel(Number(data.guardian_worker_level ?? 0));
+        setSavings(Number(data.savings_points ?? 0));
         setRebirthCount(Number(data.rebirth_count));
         setRebirthTapMultiplier(Number(data.rebirth_tap_multiplier ?? 1));
         setShieldCharges(Number(data.shield_charges));
@@ -275,8 +282,9 @@ function App() {
         coins: state.coins,
         tap_power: state.tapPower,
         auto_tap_level: state.autoTapWorkers,
-        treasure_worker_level: state.treasureWorkerLevel,
+        auto_tap_power: state.autoTapPower,
         guardian_worker_level: state.guardianWorkerLevel,
+        savings_points: state.savings,
         rebirth_count: state.rebirthCount,
         rebirth_tap_multiplier: state.rebirthTapMultiplier,
         shield_charges: state.shieldCharges,
@@ -413,8 +421,9 @@ function App() {
       const contentBounds = gameContentRef.current?.getBoundingClientRect();
       const width = contentBounds?.width ?? 320;
       const height = contentBounds?.height ?? 600;
+      const rewardRoll = Math.random();
       setTreasure({
-        type: Math.random() < 0.5 ? "tap" : "auto",
+        type: rewardRoll < 0.65 ? "tap-2" : rewardRoll < 0.8 ? "tap-10" : "cookie",
         x: padding + Math.random() * Math.max(0, width - treasureSize - padding * 2),
         y: padding + Math.random() * Math.max(0, height - treasureSize - padding * 2),
       });
@@ -454,11 +463,11 @@ function App() {
     setAutoTapWorkers((currentLevel) => currentLevel + 1);
   };
 
-  const upgradeTreasureWorker = () => {
-    if (coins < treasureWorkerCost) return;
+  const upgradeAutoTapPower = () => {
+    if (coins < autoTapPowerCost) return;
 
-    setCoins((currentCoins) => currentCoins - treasureWorkerCost);
-    setTreasureWorkerLevel((currentLevel) => currentLevel + 1);
+    setCoins((currentCoins) => currentCoins - autoTapPowerCost);
+    setAutoTapPower((currentPower) => currentPower + 1);
   };
 
   const upgradeGuardianWorker = () => {
@@ -475,6 +484,16 @@ function App() {
     setShieldCharges((currentCharges) => currentCharges + 1);
   };
 
+  const depositSavings = () => {
+    const deposit = Math.floor(points / 2);
+    if (deposit === 0) return;
+
+    setPoints((currentPoints) => currentPoints - Math.floor(currentPoints / 2));
+    setSavings((currentSavings) => currentSavings + deposit);
+    setRewardNotice(`적금 +${formatScore(deposit)} 포인트`);
+    window.setTimeout(() => setRewardNotice(null), 1_400);
+  };
+
   const rebirth = () => {
     if (coins < rebirthCost) return;
 
@@ -489,7 +508,7 @@ function App() {
         auto_tap_level: autoTapWorkers,
       });
     }
-    setPoints(0);
+    setPoints(nextSavingsInterest);
     setCoins(0);
     setTapPower((currentPower) => Math.max(1, Math.floor(currentPower / 2)));
     setAutoTapWorkers((currentWorkers) => currentWorkers * 2);
@@ -498,6 +517,7 @@ function App() {
     setBuff(null);
     setTreasure(null);
     setEnemies([]);
+    setSavings((currentSavings) => currentSavings + Math.floor(currentSavings * 0.25));
     setRebirthCount((currentCount) => currentCount + 1);
     setIsRebirthConfirmOpen(false);
   };
@@ -505,7 +525,14 @@ function App() {
   const collectTreasure = () => {
     if (!treasure) return;
 
-    setBuff({ type: treasure.type, remaining: BUFF_DURATION });
+    if (treasure.type === "cookie") {
+      const cookieReward = Math.max(1, Math.floor(points / 3));
+      setPoints((currentPoints) => currentPoints + Math.max(1, Math.floor(currentPoints / 3)));
+      setRewardNotice(`행운의 쿠키! +${formatScore(cookieReward)} 포인트`);
+      window.setTimeout(() => setRewardNotice(null), 1_400);
+    } else {
+      setBuff({ multiplier: treasure.type === "tap-10" ? 10 : 2, remaining: BUFF_DURATION });
+    }
     setTreasure(null);
   };
 
@@ -564,7 +591,7 @@ function App() {
         {buff && (
           <div className="buff-status" aria-live="polite">
             <div>
-              <strong>{buff.type === "tap" ? "탭 포인트 2배" : "오토 탭 2배"}</strong>
+              <strong>탭 포인트 {buff.multiplier}배</strong>
               <span>{buff.remaining}초</span>
             </div>
             <div className="buff-status__bar">
@@ -575,6 +602,11 @@ function App() {
         {rewardNotice && <p className="reward-notice">{rewardNotice}</p>}
         <strong className="game__score">{formatScore(points)}</strong>
         <p className="game__auto-rate">초당 +{activeAutoRate}/s</p>
+        <div className="savings-status" aria-label={`세대 적금 ${savings.toLocaleString()} 포인트`}>
+          <span aria-hidden="true">🏦</span>
+          <strong>세대 적금 {formatScore(savings)}</strong>
+          <small>다음 환생 +{formatScore(nextSavingsInterest)}</small>
+        </div>
 
         <button
           className="tap-button"
@@ -588,12 +620,11 @@ function App() {
             +{activeTapPower}
           </span>
           <span className="tap-button__label">TAP!</span>
-          {(autoTapWorkers > 0 || treasureWorkerLevel > 0 || guardianWorkerLevel > 0) && (
+          {(autoTapWorkers > 0 || guardianWorkerLevel > 0) && (
             <span className="auto-pointers" aria-hidden="true">
               {[
                 { level: autoTapWorkers, icon: "🧑", position: AUTO_POINTER_POSITIONS[0] },
-                { level: treasureWorkerLevel, icon: "🧑‍🌾", position: AUTO_POINTER_POSITIONS[1] },
-                { level: guardianWorkerLevel, icon: "🧑‍🚒", position: AUTO_POINTER_POSITIONS[2] },
+                { level: guardianWorkerLevel, icon: "🧑‍🚒", position: AUTO_POINTER_POSITIONS[1] },
               ].map(({ level, icon, position }, index) => {
                 if (level === 0) return null;
                 const [x, y] = position;
@@ -610,6 +641,7 @@ function App() {
                     }
                   >
                     {icon}
+                    {index === 0 && <span className="auto-pointer-count">×{level}</span>}
                   </span>
                 );
               })}
@@ -625,6 +657,14 @@ function App() {
               +{activeTapPower}
             </span>
           ))}
+        </button>
+        <button
+          className="savings-button"
+          type="button"
+          onClick={depositSavings}
+          disabled={points < 2}
+        >
+          적금 탭 · 포인트 절반 넣기
         </button>
         {treasure && (
           <button
@@ -761,7 +801,7 @@ function App() {
                   <div className="upgrade-card__icon" aria-hidden="true">✨</div>
                   <div className="upgrade-card__details">
                     <strong>누군가의 흔적</strong>
-                    <span>탭 강화 효과와 자동 탭퍼 레벨을 2배로 다음 세대에 남겨요</span>
+                    <span>탭 강화 효과·자동 탭퍼 인원을 2배로, 적금은 25% 불어나요</span>
                     <small>환생 {rebirthCount}회 · 다음 환생 {rebirthCost.toLocaleString()} 코인</small>
                   </div>
                   <ActionButton onClick={() => setIsRebirthConfirmOpen(true)} disabled={coins < rebirthCost}>
@@ -774,23 +814,23 @@ function App() {
                 <article className="upgrade-card upgrade-card--worker">
                   <div className="upgrade-card__icon" aria-hidden="true">🧑</div>
                   <div className="upgrade-card__details">
-                    <strong>자동 탭퍼</strong>
-                    <span>스스로 버튼을 눌러 초당 포인트를 만들어요</span>
-                    <small>레벨 {autoTapWorkers} · 초당 +{activeAutoRate}/s</small>
+                    <strong>자동 탭퍼 고용</strong>
+                    <span>작업자 한 명이 초당 +{autoTapPower}/s를 만들어요</span>
+                    <small>{autoTapWorkers}명 · 합계 초당 +{activeAutoRate}/s · 가격은 매번 5% 상승</small>
                   </div>
                   <ActionButton onClick={upgradeAutoTapper} disabled={coins < autoTapperCost}>
                     {autoTapperCost} 코인
                   </ActionButton>
                 </article>
                 <article className="upgrade-card upgrade-card--worker">
-                  <div className="upgrade-card__icon" aria-hidden="true">🧑‍🌾</div>
+                  <div className="upgrade-card__icon" aria-hidden="true">⚙️</div>
                   <div className="upgrade-card__details">
-                    <strong>보물 탐험가</strong>
-                    <span>보물상자를 찾아오는 확률을 높여요</span>
-                    <small>레벨 {treasureWorkerLevel} · 등장 확률 {(treasureChance * 100).toFixed(0)}%</small>
+                    <strong>자동 탭 강화</strong>
+                    <span>모든 자동 탭퍼의 초당 생산량을 +1 올려요</span>
+                    <small>작업자 1명당 초당 +{autoTapPower} → +{autoTapPower + 1}</small>
                   </div>
-                  <ActionButton onClick={upgradeTreasureWorker} disabled={coins < treasureWorkerCost}>
-                    {treasureWorkerCost} 코인
+                  <ActionButton onClick={upgradeAutoTapPower} disabled={coins < autoTapPowerCost}>
+                    {autoTapPowerCost} 코인
                   </ActionButton>
                 </article>
                 <article className="upgrade-card upgrade-card--worker">
@@ -855,7 +895,7 @@ function App() {
               <strong>초기화되는 것</strong>
               <span>포인트, 코인, 보호막, 진행 중인 이벤트</span>
               <strong>다음 세대에 남는 것</strong>
-              <span>탭 강화 효과 2배, 자동 탭퍼 레벨 2배, 보물·수호 작업자 레벨, 직접 탭 업적</span>
+              <span>탭 강화 효과 2배, 자동 탭퍼 인원 2배, 적금 25% 이자와 이자 포인트, 수호 작업자 레벨, 직접 탭 업적</span>
             </div>
             <div className="rebirth-confirm__actions">
               <ActionButton tone="weak" onClick={() => setIsRebirthConfirmOpen(false)}>

@@ -7,6 +7,7 @@ create table if not exists public.game_states (
   auto_tap_power bigint not null default 1,
   treasure_worker_level integer not null default 0,
   guardian_worker_level integer not null default 0,
+  savings_points bigint not null default 0,
   rebirth_count integer not null default 0,
   rebirth_tap_multiplier bigint not null default 1,
   shield_charges integer not null default 0,
@@ -29,6 +30,9 @@ alter table public.game_states
 
 alter table public.game_states
   add column if not exists guardian_worker_level integer not null default 0;
+
+alter table public.game_states
+  add column if not exists savings_points bigint not null default 0;
 
 create table if not exists public.rebirth_history (
   id bigint generated always as identity primary key,
