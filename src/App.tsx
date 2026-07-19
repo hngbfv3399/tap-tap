@@ -40,6 +40,20 @@ const getEnemyCount = (points: number) => {
   return 1;
 };
 
+const formatScore = (value: number) => {
+  const units = [
+    { value: 1_000_000_000, suffix: "B" },
+    { value: 1_000_000, suffix: "M" },
+    { value: 1_000, suffix: "K" },
+  ];
+  const unit = units.find((candidate) => Math.abs(value) >= candidate.value);
+  if (!unit) return value.toLocaleString();
+
+  const compactValue = value / unit.value;
+  const digits = Math.abs(compactValue) >= 100 ? 0 : 1;
+  return `${compactValue.toFixed(digits).replace(/\.0$/, "")}${unit.suffix}`;
+};
+
 type ActionButtonProps = {
   children: ReactNode;
   onClick: () => void;
@@ -431,7 +445,7 @@ function App() {
     setPoints(0);
     setCoins(0);
     setTapPower((currentPower) => Math.max(1, Math.floor(currentPower / 2)));
-    setAutoTapLevel((currentLevel) => Math.floor(currentLevel / 2));
+    setAutoTapLevel((currentLevel) => currentLevel * 2);
     setShieldCharges(0);
     setBuff(null);
     setTreasure(null);
@@ -511,7 +525,7 @@ function App() {
           </div>
         )}
         {rewardNotice && <p className="reward-notice">{rewardNotice}</p>}
-        <strong className="game__score">{points.toLocaleString()}</strong>
+        <strong className="game__score">{formatScore(points)}</strong>
         <p className="game__auto-rate">초당 +{activeAutoRate}/s</p>
 
         <button
@@ -675,7 +689,7 @@ function App() {
                   <div className="upgrade-card__icon" aria-hidden="true">✨</div>
                   <div className="upgrade-card__details">
                     <strong>누군가의 흔적</strong>
-                    <span>탭 파워와 오토 탭의 절반을 다음 세대에 남겨요</span>
+                    <span>탭 파워는 절반, 오토 탭은 2배로 다음 세대에 남겨요</span>
                     <small>환생 {rebirthCount}회 · 다음 환생 {rebirthCost.toLocaleString()} 코인</small>
                   </div>
                   <ActionButton onClick={() => setIsRebirthConfirmOpen(true)} disabled={coins < rebirthCost}>
@@ -733,7 +747,7 @@ function App() {
               <strong>초기화되는 것</strong>
               <span>포인트, 코인, 보호막, 진행 중인 이벤트</span>
               <strong>다음 세대에 남는 것</strong>
-              <span>탭 파워와 오토 탭의 절반, 직접 탭 업적</span>
+              <span>탭 파워의 절반, 오토 탭 2배, 직접 탭 업적</span>
             </div>
             <div className="rebirth-confirm__actions">
               <ActionButton tone="weak" onClick={() => setIsRebirthConfirmOpen(false)}>
