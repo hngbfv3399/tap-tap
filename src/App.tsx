@@ -103,6 +103,12 @@ const achievements = [
   { target: 1_000_000_000, title: "세계를 두드린 손", description: "직접 탭 1,000,000,000회" },
 ];
 
+const savingsAchievements = [
+  { target: 1_000, title: "첫 적금", description: "세대 적금 1,000 포인트" },
+  { target: 100_000, title: "든든한 금고", description: "세대 적금 100,000 포인트" },
+  { target: 10_000_000, title: "세대의 금고", description: "세대 적금 10,000,000 포인트" },
+];
+
 function App() {
   const [points, setPoints] = useState(0);
   const [coins, setCoins] = useState(0);
@@ -122,6 +128,7 @@ function App() {
   const [legacyBountyLevel, setLegacyBountyLevel] = useState(0);
   const [legacyTreasureLevel, setLegacyTreasureLevel] = useState(0);
   const [legacyStartCoinsLevel, setLegacyStartCoinsLevel] = useState(0);
+  const [legacySavingsLevel, setLegacySavingsLevel] = useState(0);
   const [enemyDefeats, setEnemyDefeats] = useState(0);
   const [highestPoints, setHighestPoints] = useState(0);
   const [highestAutoRate, setHighestAutoRate] = useState(0);
@@ -166,6 +173,7 @@ function App() {
     legacyBountyLevel,
     legacyTreasureLevel,
     legacyStartCoinsLevel,
+    legacySavingsLevel,
     shieldCharges,
     totalTaps,
     enemyDefeats,
@@ -185,6 +193,8 @@ function App() {
   const totalLegacyAvailable = getLegacyTotal(lifetimePoints);
   const pendingLegacyPoints = Math.max(0, totalLegacyAvailable - legacyEarnedTotal);
   const treasureDelayMultiplier = 1 - legacyTreasureLevel * 0.05;
+  const savingsAchievementCount = savingsAchievements.filter((achievement) => savings >= achievement.target).length;
+  const savingsRewardMultiplier = (1 + legacySavingsLevel * 0.2) * (1 + savingsAchievementCount * 0.05);
   const achievementMultiplier = 1 + achievements.filter((achievement) => totalTaps >= achievement.target).length * 0.003;
   const autoTapperMilestone = getMilestoneMultiplier(autoTapWorkers);
   const workshopMilestone = getMilestoneMultiplier(workshopCount);
@@ -195,7 +205,8 @@ function App() {
   const activeTapPower = Math.max(1, Math.floor(tapPower * generationMultiplier * achievementMultiplier * (buff?.multiplier ?? 1)));
   const activeAutoRate = Math.floor((baseAutoRate + factoryRate) * generationMultiplier * achievementMultiplier);
   const enemyTheftRate = Math.max(0.01, 0.05 - guardianWorkerLevel * 0.005);
-  const nextSavingsInterest = Math.floor(savings * 0.05);
+  const baseCookieReward = Math.max(25, activeAutoRate * 120 + activeTapPower * 100);
+  const savingsCookieBonus = Math.min(Math.floor(savings * 0.01 * savingsRewardMultiplier), baseCookieReward * 2);
 
   useEffect(() => {
     pointsRef.current = points;
@@ -241,6 +252,7 @@ function App() {
       legacyBountyLevel,
       legacyTreasureLevel,
       legacyStartCoinsLevel,
+      legacySavingsLevel,
       shieldCharges,
       totalTaps,
       enemyDefeats,
@@ -267,6 +279,7 @@ function App() {
     legacyBountyLevel,
     legacyTreasureLevel,
     legacyStartCoinsLevel,
+    legacySavingsLevel,
     shieldCharges,
     savings,
     tapPower,
@@ -340,6 +353,7 @@ function App() {
         setLegacyBountyLevel(Number(data.legacy_bounty_level ?? 0));
         setLegacyTreasureLevel(Number(data.legacy_treasure_level ?? 0));
         setLegacyStartCoinsLevel(Number(data.legacy_start_coins_level ?? 0));
+        setLegacySavingsLevel(Number(data.legacy_savings_level ?? 0));
         setShieldCharges(Number(data.shield_charges));
         setTotalTaps(savedTotalTaps);
         setEnemyDefeats(Number(data.enemy_defeats));
@@ -384,6 +398,7 @@ function App() {
         legacy_bounty_level: state.legacyBountyLevel,
         legacy_treasure_level: state.legacyTreasureLevel,
         legacy_start_coins_level: state.legacyStartCoinsLevel,
+        legacy_savings_level: state.legacySavingsLevel,
         rebirth_tap_multiplier: 1,
         shield_charges: state.shieldCharges,
         total_taps: state.totalTaps,
@@ -644,8 +659,7 @@ function App() {
     }
     setLegacyPoints((currentPoints) => currentPoints + pendingLegacyPoints);
     setLegacyEarnedTotal(totalLegacyAvailable);
-    setPoints(nextSavingsInterest);
-    setLifetimePoints((currentPoints) => currentPoints + nextSavingsInterest);
+    setPoints(0);
     setCoins(legacyStartCoinsLevel);
     setTapPower(1);
     setAutoTapWorkers(0);
@@ -659,7 +673,6 @@ function App() {
     setTreasure(null);
     treasureRef.current = null;
     setEnemies([]);
-    setSavings((currentSavings) => currentSavings + Math.floor(currentSavings * 0.05));
     setRebirthCount((currentCount) => currentCount + 1);
     setIsRebirthConfirmOpen(false);
   };
@@ -680,7 +693,7 @@ function App() {
     if (!treasure) return;
 
     if (treasure.type === "cookie") {
-      const cookieReward = Math.max(25, activeAutoRate * 120 + activeTapPower * 100);
+      const cookieReward = baseCookieReward + savingsCookieBonus;
       setPoints((currentPoints) => currentPoints + cookieReward);
       setLifetimePoints((currentPoints) => currentPoints + cookieReward);
       setRewardNotice(`행운의 쿠키! +${formatScore(cookieReward)} 포인트`);
@@ -954,8 +967,8 @@ function App() {
                   <div className="upgrade-card__icon" aria-hidden="true">🏦</div>
                   <div className="upgrade-card__details">
                     <strong>세대 적금</strong>
-                    <span>현재 포인트의 절반을 적금해 다음 세대에 남겨요</span>
-                    <small>적금 {formatScore(savings)} · 다음 환생 이자 +{formatScore(nextSavingsInterest)}</small>
+                    <span>현재 포인트의 절반을 맡기면 행운의 쿠키 보상이 커져요</span>
+                    <small>적금 {formatScore(savings)} · 쿠키 추가 보상 +{formatScore(savingsCookieBonus)}</small>
                   </div>
                   <ActionButton onClick={depositSavings} disabled={points < 2}>
                     절반 넣기
@@ -965,7 +978,7 @@ function App() {
                   <div className="upgrade-card__icon" aria-hidden="true">✨</div>
                   <div className="upgrade-card__details">
                     <strong>누군가의 흔적</strong>
-                    <span>모든 생산량이 세대마다 5%씩 늘고, 적금도 5% 불어나요</span>
+                    <span>모든 생산량이 세대마다 5%씩 늘어나요</span>
                     <small>환생 {rebirthCount}회 · 다음 환생 {rebirthCost.toLocaleString()} 코인</small>
                   </div>
                   <ActionButton onClick={() => setIsRebirthConfirmOpen(true)} disabled={coins < rebirthCost}>
@@ -1102,6 +1115,17 @@ function App() {
                     {legacyStartCoinsLevel >= 5 ? "완료" : `${getLegacyCost(legacyStartCoinsLevel)} 기억`}
                   </ActionButton>
                 </article>
+                <article className="upgrade-card upgrade-card--savings">
+                  <div className="upgrade-card__icon" aria-hidden="true">🏦</div>
+                  <div className="upgrade-card__details">
+                    <strong>금고 관리법</strong>
+                    <span>세대 적금이 행운의 쿠키에 주는 추가 보상을 20% 올려요</span>
+                    <small>레벨 {legacySavingsLevel}/5 · 현재 +{legacySavingsLevel * 20}%</small>
+                  </div>
+                  <ActionButton onClick={() => buyLegacyUpgrade(legacySavingsLevel, 5, setLegacySavingsLevel)} disabled={legacySavingsLevel >= 5 || legacyPoints < getLegacyCost(legacySavingsLevel)}>
+                    {legacySavingsLevel >= 5 ? "완료" : `${getLegacyCost(legacySavingsLevel)} 기억`}
+                  </ActionButton>
+                </article>
               </div>
             ) : (
               <div className="achievement-list" role="tabpanel">
@@ -1133,6 +1157,32 @@ function App() {
                     </article>
                   );
                 })}
+                <p className="achievement-summary">세대 적금 업적 · 쿠키 적금 보너스 +{(savingsAchievementCount * 5).toFixed(0)}%</p>
+                {savingsAchievements.map((achievement) => {
+                  const unlocked = savings >= achievement.target;
+                  const progress = Math.min((savings / achievement.target) * 100, 100);
+
+                  return (
+                    <article
+                      className={unlocked ? "achievement-card achievement-card--unlocked" : "achievement-card"}
+                      key={achievement.target}
+                    >
+                      <div className="achievement-card__icon" aria-hidden="true">
+                        {unlocked ? "🏦" : "🔒"}
+                      </div>
+                      <div className="achievement-card__details">
+                        <div>
+                          <strong>{achievement.title}</strong>
+                          <span>{achievement.description}</span>
+                        </div>
+                        <div className="achievement-progress" aria-label={`${progress.toFixed(0)}% 달성`}>
+                          <span style={{ width: `${progress}%` }} />
+                        </div>
+                        <small>{formatScore(savings)} / {formatScore(achievement.target)} 포인트</small>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
             )}
           </section>
@@ -1156,7 +1206,7 @@ function App() {
               <strong>초기화되는 것</strong>
               <span>포인트, 코인, 탭·작업자·작업대·공장 강화, 보호막, 진행 중인 이벤트</span>
               <strong>다음 세대에 남는 것</strong>
-              <span>세대 생산 +5%, 세대 기억과 영구 연구, 적금 5% 이자와 이자 포인트, 직접 탭 업적</span>
+              <span>세대 생산 +5%, 세대 기억과 영구 연구, 적금 원금, 직접 탭 업적</span>
             </div>
             <div className="rebirth-confirm__actions">
               <ActionButton tone="weak" onClick={() => setIsRebirthConfirmOpen(false)}>

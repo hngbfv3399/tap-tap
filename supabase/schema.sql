@@ -19,6 +19,7 @@ create table if not exists public.game_states (
   legacy_bounty_level integer not null default 0,
   legacy_treasure_level integer not null default 0,
   legacy_start_coins_level integer not null default 0,
+  legacy_savings_level integer not null default 0,
   rebirth_tap_multiplier bigint not null default 1,
   shield_charges integer not null default 0,
   total_taps bigint not null default 0,
@@ -58,7 +59,8 @@ alter table public.game_states
   add column if not exists legacy_offline_level integer not null default 0,
   add column if not exists legacy_bounty_level integer not null default 0,
   add column if not exists legacy_treasure_level integer not null default 0,
-  add column if not exists legacy_start_coins_level integer not null default 0;
+  add column if not exists legacy_start_coins_level integer not null default 0,
+  add column if not exists legacy_savings_level integer not null default 0;
 
 create table if not exists public.rebirth_history (
   id bigint generated always as identity primary key,
