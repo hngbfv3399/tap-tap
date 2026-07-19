@@ -54,7 +54,7 @@ const getNextMilestone = (count: number) =>
   [10, 25, 50].find((milestone) => count < milestone) ?? null;
 
 const getLegacyCost = (level: number) => level + 1;
-const getLegacyTotal = (lifetimePoints: number) => Math.floor(Math.cbrt(lifetimePoints / 100_000));
+const getLegacyTotal = (lifetimePoints: number) => Math.floor(Math.cbrt(lifetimePoints / 10_000_000));
 
 const formatScore = (value: number) => {
   const units = [
@@ -140,7 +140,7 @@ function App() {
   const [shieldCharges, setShieldCharges] = useState(0);
   const [rewardNotice, setRewardNotice] = useState<string | null>(null);
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
-  const [activePanel, setActivePanel] = useState<"shop" | "workers" | "legacy" | "achievements">("shop");
+  const [activePanel, setActivePanel] = useState<"shop" | "workers" | "legacy" | "stats" | "achievements">("shop");
   const [totalTaps, setTotalTaps] = useState(0);
   const [pops, setPops] = useState<Pop[]>([]);
   const nextId = useRef(0);
@@ -202,6 +202,8 @@ function App() {
   const workshopBonus = 1 + workshopCount * 0.05 * workshopMilestone;
   const baseAutoRate = autoTapWorkers * autoTapPower * autoTapperMilestone * workshopBonus;
   const factoryRate = factoryCount * 20 * factoryMilestone;
+  const autoTapperRate = Math.floor(baseAutoRate * generationMultiplier * achievementMultiplier);
+  const factoryProductionRate = Math.floor(factoryRate * generationMultiplier * achievementMultiplier);
   const activeTapPower = Math.max(1, Math.floor(tapPower * generationMultiplier * achievementMultiplier * (buff?.multiplier ?? 1)));
   const activeAutoRate = Math.floor((baseAutoRate + factoryRate) * generationMultiplier * achievementMultiplier);
   const enemyTheftRate = Math.max(0.01, 0.05 - guardianWorkerLevel * 0.005);
@@ -874,7 +876,7 @@ function App() {
               <div>
                 <p>보유 코인 {coins.toLocaleString()}개</p>
                 <h2 id="upgrade-title">
-                  {activePanel === "shop" ? "상점" : activePanel === "workers" ? "작업자" : activePanel === "legacy" ? "세대 기억" : "업적"}
+                  {activePanel === "shop" ? "상점" : activePanel === "workers" ? "작업자" : activePanel === "legacy" ? "세대 기억" : activePanel === "stats" ? "통계" : "업적"}
                 </h2>
               </div>
               <button
@@ -914,6 +916,15 @@ function App() {
                 onClick={() => setActivePanel("legacy")}
               >
                 세대
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activePanel === "stats"}
+                className={activePanel === "stats" ? "sheet-tab sheet-tab--active" : "sheet-tab"}
+                onClick={() => setActivePanel("stats")}
+              >
+                통계
               </button>
               <button
                 type="button"
@@ -1058,7 +1069,7 @@ function App() {
             ) : activePanel === "legacy" ? (
               <div className="upgrade-list" role="tabpanel">
                 <p className="achievement-summary">
-                  누적 {formatScore(lifetimePoints)} 포인트 · 보유 기억 {legacyPoints}개 · 이번 환생 +{pendingLegacyPoints}개
+                  누적 {formatScore(lifetimePoints)} 포인트 · 보유 기억 {legacyPoints}개 · 이번 환생 +{pendingLegacyPoints}개 · 첫 기억 10M
                 </p>
                 <article className="upgrade-card upgrade-card--rebirth">
                   <div className="upgrade-card__icon" aria-hidden="true">✨</div>
@@ -1125,6 +1136,50 @@ function App() {
                   <ActionButton onClick={() => buyLegacyUpgrade(legacySavingsLevel, 5, setLegacySavingsLevel)} disabled={legacySavingsLevel >= 5 || legacyPoints < getLegacyCost(legacySavingsLevel)}>
                     {legacySavingsLevel >= 5 ? "완료" : `${getLegacyCost(legacySavingsLevel)} 기억`}
                   </ActionButton>
+                </article>
+              </div>
+            ) : activePanel === "stats" ? (
+              <div className="upgrade-list" role="tabpanel">
+                <p className="achievement-summary">이번 세대 최고 {formatScore(highestPoints)} 포인트 · 누적 {formatScore(lifetimePoints)} 포인트</p>
+                <article className="upgrade-card upgrade-card--worker">
+                  <div className="upgrade-card__icon" aria-hidden="true">⚡</div>
+                  <div className="upgrade-card__details">
+                    <strong>현재 자동 생산</strong>
+                    <span>작업자와 공장에서 매초 생성되는 포인트예요</span>
+                    <small>합계 초당 +{formatScore(activeAutoRate)}/s · 최고 초당 +{formatScore(highestAutoRate)}/s</small>
+                  </div>
+                </article>
+                <article className="upgrade-card">
+                  <div className="upgrade-card__icon" aria-hidden="true">🧑</div>
+                  <div className="upgrade-card__details">
+                    <strong>자동 탭퍼 기여</strong>
+                    <span>{autoTapWorkers}명 · 작업대 보너스 +{((workshopBonus - 1) * 100).toFixed(0)}%</span>
+                    <small>초당 +{formatScore(autoTapperRate)}/s · 마일스톤 ×{autoTapperMilestone}</small>
+                  </div>
+                </article>
+                <article className="upgrade-card">
+                  <div className="upgrade-card__icon" aria-hidden="true">🏭</div>
+                  <div className="upgrade-card__details">
+                    <strong>탭 공장 기여</strong>
+                    <span>공장 {factoryCount}개 · 마일스톤 ×{factoryMilestone}</span>
+                    <small>초당 +{formatScore(factoryProductionRate)}/s</small>
+                  </div>
+                </article>
+                <article className="upgrade-card upgrade-card--rebirth">
+                  <div className="upgrade-card__icon" aria-hidden="true">✨</div>
+                  <div className="upgrade-card__details">
+                    <strong>영구 보너스</strong>
+                    <span>환생 +{rebirthCount * 5}% · 세대의 힘 +{legacyProductionLevel * 2}% · 업적 +{((achievementMultiplier - 1) * 100).toFixed(1)}%</span>
+                    <small>전체 생산 배율 ×{generationMultiplier.toFixed(2)}</small>
+                  </div>
+                </article>
+                <article className="upgrade-card upgrade-card--exchange">
+                  <div className="upgrade-card__icon" aria-hidden="true">🎯</div>
+                  <div className="upgrade-card__details">
+                    <strong>다음 목표</strong>
+                    <span>{getNextMilestone(autoTapWorkers) ? `자동 탭퍼 ${getNextMilestone(autoTapWorkers)}명에서 다음 마일스톤` : "자동 탭퍼 마일스톤을 모두 달성했어요"}</span>
+                    <small>다음 환생까지 {Math.max(0, rebirthCost - coins).toLocaleString()} 코인</small>
+                  </div>
                 </article>
               </div>
             ) : (
