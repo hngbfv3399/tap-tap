@@ -1,5 +1,4 @@
-import { Button, Top } from "@toss/tds-mobile";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { supabase } from "./lib/supabase";
 import "./App.css";
 
@@ -40,6 +39,27 @@ const getEnemyCount = (points: number) => {
   if (points >= 100) return 2;
   return 1;
 };
+
+type ActionButtonProps = {
+  children: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  tone?: "weak" | "primary";
+  className?: string;
+};
+
+function ActionButton({ children, onClick, disabled, tone = "primary", className = "" }: ActionButtonProps) {
+  return (
+    <button
+      className={`action-button action-button--${tone} ${className}`}
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+    >
+      {children}
+    </button>
+  );
+}
 
 const achievements = [
   { target: 1, title: "첫 손길", description: "직접 탭 1회" },
@@ -452,25 +472,21 @@ function App() {
 
   return (
     <main className="game">
-      <Top
-        upperGap={32}
-        lowerGap={0}
-        right={
-          <button
-            className="menu-button"
-            type="button"
-            onClick={() => {
-              setActivePanel("shop");
-              setIsUpgradeOpen(true);
-            }}
-            aria-label="업그레이드 목록 열기"
-          >
-            <span />
-            <span />
-            <span />
-          </button>
-        }
-      />
+      <header className="game__top">
+        <button
+          className="menu-button"
+          type="button"
+          onClick={() => {
+            setActivePanel("shop");
+            setIsUpgradeOpen(true);
+          }}
+          aria-label="업그레이드 목록 열기"
+        >
+          <span />
+          <span />
+          <span />
+        </button>
+      </header>
 
       <section className="game__content" aria-live="polite" ref={gameContentRef}>
         <div className="wallet" aria-label={`보유 코인 ${coins}개`}>
@@ -618,9 +634,9 @@ function App() {
                     <span>클릭 포인트를 코인으로 바꿔요</span>
                     <small>10 포인트를 모으면 코인 1개를 받아요</small>
                   </div>
-                  <Button size="medium" onClick={exchangePoints} disabled={exchangeableCoins === 0}>
+                  <ActionButton onClick={exchangePoints} disabled={exchangeableCoins === 0}>
                     환전하기
-                  </Button>
+                  </ActionButton>
                 </article>
                 <article className="upgrade-card">
                   <div className="upgrade-card__icon" aria-hidden="true">☝️</div>
@@ -629,9 +645,9 @@ function App() {
                     <span>탭 포인트가 구매할 때마다 2배가 돼요</span>
                     <small>{tapPower} 포인트 → {tapPower * 2} 포인트</small>
                   </div>
-                  <Button size="medium" onClick={buyPowerUpgrade} disabled={coins < powerUpgradeCost}>
+                  <ActionButton onClick={buyPowerUpgrade} disabled={coins < powerUpgradeCost}>
                     {powerUpgradeCost} 코인
-                  </Button>
+                  </ActionButton>
                 </article>
                 <article className="upgrade-card">
                   <div className="upgrade-card__icon" aria-hidden="true">🤖</div>
@@ -640,9 +656,9 @@ function App() {
                     <span>매초 자동으로 포인트를 얻어요</span>
                     <small>현재 레벨 {autoTapLevel} · 초당 +{autoTapLevel}/s</small>
                   </div>
-                  <Button size="medium" onClick={buyAutoTapUpgrade} disabled={coins < autoTapCost}>
+                  <ActionButton onClick={buyAutoTapUpgrade} disabled={coins < autoTapCost}>
                     {autoTapCost} 코인
-                  </Button>
+                  </ActionButton>
                 </article>
                 <article className="upgrade-card upgrade-card--shield">
                   <div className="upgrade-card__icon" aria-hidden="true">🛡️</div>
@@ -651,9 +667,9 @@ function App() {
                     <span>방해꾼이 빼앗는 포인트를 1회 막아줘요</span>
                     <small>보유 보호막 {shieldCharges}회</small>
                   </div>
-                  <Button size="medium" onClick={buyShield} disabled={coins < shieldCost}>
+                  <ActionButton onClick={buyShield} disabled={coins < shieldCost}>
                     {shieldCost} 코인
-                  </Button>
+                  </ActionButton>
                 </article>
                 <article className="upgrade-card upgrade-card--rebirth">
                   <div className="upgrade-card__icon" aria-hidden="true">✨</div>
@@ -662,9 +678,9 @@ function App() {
                     <span>탭 파워와 오토 탭의 절반을 다음 세대에 남겨요</span>
                     <small>환생 {rebirthCount}회 · 다음 환생 {rebirthCost.toLocaleString()} 코인</small>
                   </div>
-                  <Button size="medium" onClick={() => setIsRebirthConfirmOpen(true)} disabled={coins < rebirthCost}>
+                  <ActionButton onClick={() => setIsRebirthConfirmOpen(true)} disabled={coins < rebirthCost}>
                     환생하기
-                  </Button>
+                  </ActionButton>
                 </article>
               </div>
             ) : (
@@ -720,12 +736,12 @@ function App() {
               <span>탭 파워와 오토 탭의 절반, 직접 탭 업적</span>
             </div>
             <div className="rebirth-confirm__actions">
-              <Button color="dark" variant="weak" display="block" onClick={() => setIsRebirthConfirmOpen(false)}>
+              <ActionButton tone="weak" onClick={() => setIsRebirthConfirmOpen(false)}>
                 취소
-              </Button>
-              <Button display="block" onClick={rebirth}>
+              </ActionButton>
+              <ActionButton onClick={rebirth}>
                 {rebirthCost.toLocaleString()}코인으로 환생
-              </Button>
+              </ActionButton>
             </div>
           </section>
         </div>

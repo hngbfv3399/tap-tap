@@ -23,6 +23,38 @@
   padding: 10px 24px 130px;
 }
 
+.game__top {
+  display: flex;
+  height: 80px;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 20px;
+}
+
+.action-button {
+  min-height: 42px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 12px;
+  background: #3182f6;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.action-button:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.action-button--weak {
+  background: #e8edf3;
+  color: #4e5968;
+}
+
 .menu-button,
 .close-button {
   border: 0;
