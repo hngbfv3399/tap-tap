@@ -35,6 +35,9 @@ create table if not exists public.rebirth_history (
 alter table public.game_states enable row level security;
 alter table public.rebirth_history enable row level security;
 
+drop policy if exists "users manage their own game state" on public.game_states;
+drop policy if exists "users manage their own rebirth history" on public.rebirth_history;
+
 create policy "users manage their own game state"
   on public.game_states for all
   using ((select auth.uid()) = user_id)
