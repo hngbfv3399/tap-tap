@@ -246,15 +246,34 @@
   text-shadow: 0 2px 0 rgba(0, 0, 0, 0.12);
 }
 
+.auto-pointers {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
 .auto-pointer {
   position: absolute;
-  right: 14%;
-  bottom: 12%;
-  z-index: 3;
+  left: var(--pointer-x);
+  top: var(--pointer-y);
   font-size: clamp(28px, 9vw, 38px);
   filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.16));
   pointer-events: none;
-  animation: auto-tap 800ms ease-in-out infinite;
+  transform: translate(-50%, -50%);
+  animation: auto-tap 800ms ease-in-out var(--pointer-delay) infinite;
+}
+
+.auto-pointer-count {
+  position: absolute;
+  right: 5%;
+  bottom: 5%;
+  padding: 3px 7px;
+  border-radius: 12px;
+  background: #fff;
+  color: #1769d4;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .score-pop {
@@ -319,8 +338,8 @@
 }
 
 @keyframes auto-tap {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(-9px, -13px) scale(0.9); }
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(calc(-50% - 6px), calc(-50% - 9px)) scale(0.9); }
 }
 
 @keyframes treasure-pop {

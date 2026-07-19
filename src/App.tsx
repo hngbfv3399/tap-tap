@@ -32,6 +32,11 @@ type Treasure = {
 const BUFF_DURATION = 30;
 const ENEMY_CHASE_DURATION = 6_000;
 
+const AUTO_POINTER_POSITIONS = [
+  [79, 76], [16, 73], [80, 22], [17, 22],
+  [50, 89], [50, 7], [92, 50], [5, 50],
+];
+
 const getEnemyCount = (points: number) => {
   if (points >= 100_000) return 5;
   if (points >= 10_000) return 4;
@@ -129,11 +134,11 @@ function App() {
   });
   const exchangeableCoins = Math.floor(points / 10);
   const powerUpgradeCost = tapPower * 3;
-  const autoTapCost = Math.round(12 * 1.7 ** autoTapLevel);
+  const autoTapCost = 12 + autoTapLevel * 8;
   const shieldCost = 18;
   const rebirthCost = (rebirthCount + 1) * 1_000;
   const activeTapPower = tapPower * (buff?.type === "tap" ? 2 : 1);
-  const activeAutoRate = autoTapLevel * tapPower * (buff?.type === "auto" ? 2 : 1);
+  const activeAutoRate = autoTapLevel * (buff?.type === "auto" ? 2 : 1);
 
   useEffect(() => {
     pointsRef.current = points;
@@ -541,8 +546,28 @@ function App() {
           </span>
           <span className="tap-button__label">TAP!</span>
           {autoTapLevel > 0 && (
-            <span className="auto-pointer" aria-hidden="true">
-              ☝️
+            <span className="auto-pointers" aria-hidden="true">
+              {Array.from({ length: Math.min(autoTapLevel, AUTO_POINTER_POSITIONS.length) }, (_, index) => {
+                const [x, y] = AUTO_POINTER_POSITIONS[index];
+                return (
+                  <span
+                    className="auto-pointer"
+                    key={index}
+                    style={
+                      {
+                        "--pointer-x": `${x}%`,
+                        "--pointer-y": `${y}%`,
+                        "--pointer-delay": `${index * 90}ms`,
+                      } as CSSProperties
+                    }
+                  >
+                    ☝️
+                  </span>
+                );
+              })}
+              {autoTapLevel > AUTO_POINTER_POSITIONS.length && (
+                <span className="auto-pointer-count">+{autoTapLevel - AUTO_POINTER_POSITIONS.length}</span>
+              )}
             </span>
           )}
           {pops.map((pop) => (
@@ -667,7 +692,7 @@ function App() {
                   <div className="upgrade-card__icon" aria-hidden="true">🤖</div>
                   <div className="upgrade-card__details">
                     <strong>오토 탭</strong>
-                    <span>현재 탭 파워에 비례해 자동으로 포인트를 얻어요</span>
+                    <span>자동 포인터 1개를 추가해요</span>
                     <small>현재 레벨 {autoTapLevel} · 초당 +{autoTapLevel}/s</small>
                   </div>
                   <ActionButton onClick={buyAutoTapUpgrade} disabled={coins < autoTapCost}>
