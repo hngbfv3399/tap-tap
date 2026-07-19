@@ -17,8 +17,10 @@ type Buff = {
 
 type Enemy = {
   id: number;
+  type: "raider" | "hoarder";
   health: number;
   maxHealth: number;
+  storedPoints: number;
   x: number;
   y: number;
   approachX: number;
@@ -482,9 +484,11 @@ function App() {
   useEffect(() => {
     if (!isGameReady) return;
     const timers = enemyTimers.current;
-    const resolveEnemy = (enemyId: number) => {
+    const resolveEnemy = (enemyId: number, type: Enemy["type"]) => {
       setEnemies((currentEnemies) => currentEnemies.filter((enemy) => enemy.id !== enemyId));
       timers.delete(enemyId);
+
+      if (type === "hoarder") return;
 
       if (shieldChargesRef.current > 0) {
         shieldChargesRef.current -= 1;
@@ -499,7 +503,9 @@ function App() {
       const enemyCount = getEnemyCount(pointsRef.current);
       const nextEnemies = Array.from({ length: enemyCount }, (_, index) => {
         const id = Date.now() + index;
-        const health = tapPowerRef.current * 2;
+        const type = pointsRef.current >= 100 && Math.random() < 0.2 ? "hoarder" : "raider";
+        const storedPoints = type === "hoarder" ? Math.max(1, Math.floor(pointsRef.current * 0.02)) : 0;
+        const health = tapPowerRef.current * (type === "hoarder" ? 4 : 2);
         const edge = Math.floor(Math.random() * 4);
         const edgePosition = 8 + Math.random() * 84;
         const x = edge === 0 ? -14 : edge === 1 ? 106 : edgePosition;
@@ -524,12 +530,14 @@ function App() {
         const collisionDistance = buttonRadius + enemyRadius;
         const targetX = buttonCenterX + (directionX / distance) * collisionDistance;
         const targetY = buttonCenterY + (directionY / distance) * collisionDistance;
-        const timeoutId = window.setTimeout(() => resolveEnemy(id), ENEMY_CHASE_DURATION);
+        const timeoutId = window.setTimeout(() => resolveEnemy(id, type), ENEMY_CHASE_DURATION);
         timers.set(id, timeoutId);
         return {
           id,
+          type,
           health,
           maxHealth: health,
+          storedPoints,
           x,
           y,
           approachX: targetX - startCenterX,
@@ -537,6 +545,10 @@ function App() {
         };
       });
 
+      const hoarderLoss = nextEnemies.reduce((total, enemy) => total + enemy.storedPoints, 0);
+      if (hoarderLoss > 0) {
+        setPoints((currentPoints) => Math.max(0, currentPoints - hoarderLoss));
+      }
       setEnemies((currentEnemies) => [...currentEnemies, ...nextEnemies]);
     }, 10_000);
 
@@ -747,9 +759,18 @@ function App() {
       if (timeoutId) window.clearTimeout(timeoutId);
       enemyTimers.current.delete(enemyId);
       setEnemies((currentEnemies) => currentEnemies.filter((enemy) => enemy.id !== enemyId));
+      const returnedPoints = targetEnemy.type === "hoarder" ? Math.floor(targetEnemy.storedPoints * 1.2) : 0;
       setCoins((currentCoins) => currentCoins + 1 + legacyBountyLevel);
+      if (returnedPoints > 0) {
+        setPoints((currentPoints) => currentPoints + returnedPoints);
+        setLifetimePoints((currentPoints) => currentPoints + returnedPoints);
+      }
       setEnemyDefeats((currentDefeats) => currentDefeats + 1);
-      setRewardNotice(`방해꾼 처치! +${1 + legacyBountyLevel} 코인`);
+      setRewardNotice(
+        returnedPoints > 0
+          ? `축적 방해꾼 처치! +${formatScore(returnedPoints)} 포인트 · +${1 + legacyBountyLevel} 코인`
+          : `방해꾼 처치! +${1 + legacyBountyLevel} 코인`,
+      );
       window.setTimeout(() => setRewardNotice(null), 1_400);
       return;
     }
@@ -871,7 +892,7 @@ function App() {
             className="enemy"
             type="button"
             onPointerDown={() => attackEnemy(enemy.id)}
-            aria-label={`방해꾼 공격하기, 남은 체력 ${enemy.health}`}
+            aria-label={`${enemy.type === "hoarder" ? "축적 방해꾼" : "방해꾼"} 공격하기, 남은 체력 ${enemy.health}`}
             key={enemy.id}
             style={
               {
@@ -882,7 +903,7 @@ function App() {
               } as CSSProperties
             }
           >
-            <span aria-hidden="true">👾</span>
+            <span aria-hidden="true">{enemy.type === "hoarder" ? "🦹" : "👾"}</span>
           </button>
         ))}
       </section>
