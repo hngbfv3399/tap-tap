@@ -58,6 +58,8 @@ const getNextMilestone = (count: number) =>
 
 const getLegacyCost = (level: number) => level + 1;
 const getLegacyTotal = (lifetimePoints: number) => Math.floor(Math.cbrt(lifetimePoints / 10_000_000));
+const BLUEPRINT_INTERVAL = 24 * 60 * 60 * 1000;
+const BLUEPRINT_STORAGE_LIMIT = 3;
 
 const formatScore = (value: number) => {
   const units = [
@@ -134,6 +136,12 @@ function App() {
   const [legacyStartCoinsLevel, setLegacyStartCoinsLevel] = useState(0);
   const [legacySavingsLevel, setLegacySavingsLevel] = useState(0);
   const [legacyRecordLevel, setLegacyRecordLevel] = useState(0);
+  const [blueprints, setBlueprints] = useState(0);
+  const [blueprintLastCollectedAt, setBlueprintLastCollectedAt] = useState(() => new Date().toISOString());
+  const [autoTapperBlueprintLevel, setAutoTapperBlueprintLevel] = useState(0);
+  const [workshopBlueprintLevel, setWorkshopBlueprintLevel] = useState(0);
+  const [factoryBlueprintLevel, setFactoryBlueprintLevel] = useState(0);
+  const [researchLabBlueprintLevel, setResearchLabBlueprintLevel] = useState(0);
   const [enemyDefeats, setEnemyDefeats] = useState(0);
   const [highestPoints, setHighestPoints] = useState(0);
   const [highestAutoRate, setHighestAutoRate] = useState(0);
@@ -181,6 +189,12 @@ function App() {
     legacyStartCoinsLevel,
     legacySavingsLevel,
     legacyRecordLevel,
+    blueprints,
+    blueprintLastCollectedAt,
+    autoTapperBlueprintLevel,
+    workshopBlueprintLevel,
+    factoryBlueprintLevel,
+    researchLabBlueprintLevel,
     shieldCharges,
     totalTaps,
     enemyDefeats,
@@ -210,10 +224,10 @@ function App() {
   const workshopMilestone = getMilestoneMultiplier(workshopCount);
   const factoryMilestone = getMilestoneMultiplier(factoryCount);
   const researchLabMilestone = getMilestoneMultiplier(researchLabCount);
-  const workshopBonus = 1 + workshopCount * 0.05 * workshopMilestone;
-  const baseAutoRate = autoTapWorkers * autoTapPower * autoTapperMilestone * workshopBonus;
-  const factoryRate = factoryCount * 20 * factoryMilestone;
-  const researchLabRate = researchLabCount * 80 * researchLabMilestone;
+  const workshopBonus = (1 + workshopCount * 0.05 * workshopMilestone) * (1 + workshopBlueprintLevel * 0.01);
+  const baseAutoRate = autoTapWorkers * autoTapPower * autoTapperMilestone * workshopBonus * (1 + autoTapperBlueprintLevel * 0.01);
+  const factoryRate = factoryCount * 20 * factoryMilestone * (1 + factoryBlueprintLevel * 0.01);
+  const researchLabRate = researchLabCount * 80 * researchLabMilestone * (1 + researchLabBlueprintLevel * 0.01);
   const autoTapperRate = Math.floor(baseAutoRate * generationMultiplier * achievementMultiplier);
   const factoryProductionRate = Math.floor(factoryRate * generationMultiplier * achievementMultiplier);
   const researchLabProductionRate = Math.floor(researchLabRate * generationMultiplier * achievementMultiplier);
@@ -270,6 +284,12 @@ function App() {
       legacyStartCoinsLevel,
       legacySavingsLevel,
       legacyRecordLevel,
+      blueprints,
+      blueprintLastCollectedAt,
+      autoTapperBlueprintLevel,
+      workshopBlueprintLevel,
+      factoryBlueprintLevel,
+      researchLabBlueprintLevel,
       shieldCharges,
       totalTaps,
       enemyDefeats,
@@ -299,6 +319,12 @@ function App() {
     legacyStartCoinsLevel,
     legacySavingsLevel,
     legacyRecordLevel,
+    blueprints,
+    blueprintLastCollectedAt,
+    autoTapperBlueprintLevel,
+    workshopBlueprintLevel,
+    factoryBlueprintLevel,
+    researchLabBlueprintLevel,
     shieldCharges,
     savings,
     tapPower,
@@ -349,13 +375,27 @@ function App() {
         const savedRebirthCount = Number(data.rebirth_count);
         const savedTotalTaps = Number(data.total_taps);
         const savedOfflineLevel = Number(data.legacy_offline_level ?? 0);
-        const savedAchievementMultiplier = 1 + achievements.filter((achievement) => savedTotalTaps >= achievement.target).length * 0.003;
+        const savedAutoTapperBlueprintLevel = Number(data.auto_tapper_blueprint_level ?? 0);
+        const savedWorkshopBlueprintLevel = Number(data.workshop_blueprint_level ?? 0);
+        const savedFactoryBlueprintLevel = Number(data.factory_blueprint_level ?? 0);
+        const savedResearchLabBlueprintLevel = Number(data.research_lab_blueprint_level ?? 0);
+        const savedAchievementBonusPerRecord = 0.001 + Number(data.legacy_record_level ?? 0) * 0.002;
+        const savedAchievementMultiplier = 1 + achievements.filter((achievement) => savedTotalTaps >= achievement.target).length * savedAchievementBonusPerRecord;
         const savedAutoBase = savedWorkers * savedAutoTapPower * getMilestoneMultiplier(savedWorkers)
-          * (1 + savedWorkshops * 0.05 * getMilestoneMultiplier(savedWorkshops));
-        const savedFactoryRate = savedFactories * 20 * getMilestoneMultiplier(savedFactories);
-        const savedResearchLabRate = savedResearchLabs * 80 * getMilestoneMultiplier(savedResearchLabs);
+          * (1 + savedWorkshops * 0.05 * getMilestoneMultiplier(savedWorkshops))
+          * (1 + savedAutoTapperBlueprintLevel * 0.01)
+          * (1 + savedWorkshopBlueprintLevel * 0.01);
+        const savedFactoryRate = savedFactories * 20 * getMilestoneMultiplier(savedFactories) * (1 + savedFactoryBlueprintLevel * 0.01);
+        const savedResearchLabRate = savedResearchLabs * 80 * getMilestoneMultiplier(savedResearchLabs) * (1 + savedResearchLabBlueprintLevel * 0.01);
         const savedProductionMultiplier = (1 + savedRebirthCount * 0.05) * (1 + Number(data.legacy_production_level ?? 0) * 0.02);
         const offlineReward = Math.floor(offlineSeconds * (savedAutoBase + savedFactoryRate + savedResearchLabRate) * savedProductionMultiplier * savedAchievementMultiplier * (1 + savedOfflineLevel * 0.1));
+        const savedBlueprints = Math.min(BLUEPRINT_STORAGE_LIMIT, Math.max(0, Number(data.blueprints ?? 0)));
+        const savedBlueprintLastCollectedAt = data.blueprint_last_collected_at ?? new Date().toISOString();
+        const elapsedBlueprints = Math.max(0, Math.floor((Date.now() - new Date(savedBlueprintLastCollectedAt).getTime()) / BLUEPRINT_INTERVAL));
+        const collectedBlueprints = Math.min(BLUEPRINT_STORAGE_LIMIT - savedBlueprints, elapsedBlueprints);
+        const nextBlueprintLastCollectedAt = elapsedBlueprints > 0
+          ? new Date(new Date(savedBlueprintLastCollectedAt).getTime() + elapsedBlueprints * BLUEPRINT_INTERVAL).toISOString()
+          : savedBlueprintLastCollectedAt;
         setPoints(Number(data.points) + offlineReward);
         setLifetimePoints(Number(data.lifetime_points ?? data.highest_points ?? data.points) + offlineReward);
         setCoins(Number(data.coins));
@@ -377,12 +417,24 @@ function App() {
         setLegacyStartCoinsLevel(Number(data.legacy_start_coins_level ?? 0));
         setLegacySavingsLevel(Number(data.legacy_savings_level ?? 0));
         setLegacyRecordLevel(Number(data.legacy_record_level ?? 0));
+        setBlueprints(savedBlueprints + collectedBlueprints);
+        setBlueprintLastCollectedAt(nextBlueprintLastCollectedAt);
+        setAutoTapperBlueprintLevel(savedAutoTapperBlueprintLevel);
+        setWorkshopBlueprintLevel(savedWorkshopBlueprintLevel);
+        setFactoryBlueprintLevel(savedFactoryBlueprintLevel);
+        setResearchLabBlueprintLevel(savedResearchLabBlueprintLevel);
         setShieldCharges(Number(data.shield_charges));
         setTotalTaps(savedTotalTaps);
         setEnemyDefeats(Number(data.enemy_defeats));
         setHighestPoints(Math.max(Number(data.highest_points), Number(data.points) + offlineReward));
         setHighestAutoRate(Number(data.highest_auto_rate));
-        if (offlineReward > 0) setRewardNotice(`오프라인 보상 +${offlineReward.toLocaleString()} 포인트`);
+        if (offlineReward > 0 || collectedBlueprints > 0) {
+          const rewards = [
+            offlineReward > 0 ? `오프라인 +${formatScore(offlineReward)} 포인트` : null,
+            collectedBlueprints > 0 ? `설계도 +${collectedBlueprints}개` : null,
+          ].filter(Boolean).join(" · ");
+          setRewardNotice(rewards);
+        }
       }
 
       setIsGameReady(true);
@@ -424,6 +476,12 @@ function App() {
         legacy_start_coins_level: state.legacyStartCoinsLevel,
         legacy_savings_level: state.legacySavingsLevel,
         legacy_record_level: state.legacyRecordLevel,
+        blueprints: state.blueprints,
+        blueprint_last_collected_at: state.blueprintLastCollectedAt,
+        auto_tapper_blueprint_level: state.autoTapperBlueprintLevel,
+        workshop_blueprint_level: state.workshopBlueprintLevel,
+        factory_blueprint_level: state.factoryBlueprintLevel,
+        research_lab_blueprint_level: state.researchLabBlueprintLevel,
         rebirth_tap_multiplier: 1,
         shield_charges: state.shieldCharges,
         total_taps: state.totalTaps,
@@ -730,6 +788,15 @@ function App() {
 
     setLegacyPoints((currentPoints) => currentPoints - cost);
     upgrade((currentLevel) => currentLevel + 1);
+  };
+
+  const applyBlueprint = (upgrade: React.Dispatch<React.SetStateAction<number>>) => {
+    if (blueprints <= 0) return;
+
+    setBlueprints((currentBlueprints) => currentBlueprints - 1);
+    upgrade((currentLevel) => currentLevel + 1);
+    setRewardNotice("설계도를 적용했어요! 해당 생산량 +1%");
+    window.setTimeout(() => setRewardNotice(null), 1_400);
   };
 
   const collectTreasure = () => {
@@ -1131,6 +1198,50 @@ function App() {
                     {autoTapPowerCost} 코인
                   </ActionButton>
                 </article>
+                <article className="upgrade-card upgrade-card--exchange">
+                  <div className="upgrade-card__icon" aria-hidden="true">📐</div>
+                  <div className="upgrade-card__details">
+                    <strong>자동 탭퍼 설계도</strong>
+                    <span>자동 탭퍼 생산량을 영구적으로 1% 올려요</span>
+                    <small>설계도 {blueprints}/{BLUEPRINT_STORAGE_LIMIT}개 · 적용 레벨 {autoTapperBlueprintLevel}</small>
+                  </div>
+                  <ActionButton onClick={() => applyBlueprint(setAutoTapperBlueprintLevel)} disabled={blueprints === 0 || autoTapWorkers === 0}>
+                    {autoTapWorkers === 0 ? "잠김" : "적용하기"}
+                  </ActionButton>
+                </article>
+                <article className="upgrade-card upgrade-card--exchange">
+                  <div className="upgrade-card__icon" aria-hidden="true">📐</div>
+                  <div className="upgrade-card__details">
+                    <strong>작업대 설계도</strong>
+                    <span>작업대가 주는 자동 탭퍼 보너스를 영구적으로 1% 올려요</span>
+                    <small>설계도 {blueprints}/{BLUEPRINT_STORAGE_LIMIT}개 · 적용 레벨 {workshopBlueprintLevel}</small>
+                  </div>
+                  <ActionButton onClick={() => applyBlueprint(setWorkshopBlueprintLevel)} disabled={blueprints === 0 || workshopCount === 0}>
+                    {workshopCount === 0 ? "잠김" : "적용하기"}
+                  </ActionButton>
+                </article>
+                <article className="upgrade-card upgrade-card--exchange">
+                  <div className="upgrade-card__icon" aria-hidden="true">📐</div>
+                  <div className="upgrade-card__details">
+                    <strong>공장 설계도</strong>
+                    <span>탭 공장 생산량을 영구적으로 1% 올려요</span>
+                    <small>설계도 {blueprints}/{BLUEPRINT_STORAGE_LIMIT}개 · 적용 레벨 {factoryBlueprintLevel}</small>
+                  </div>
+                  <ActionButton onClick={() => applyBlueprint(setFactoryBlueprintLevel)} disabled={blueprints === 0 || factoryCount === 0}>
+                    {factoryCount === 0 ? "잠김" : "적용하기"}
+                  </ActionButton>
+                </article>
+                <article className="upgrade-card upgrade-card--exchange">
+                  <div className="upgrade-card__icon" aria-hidden="true">📐</div>
+                  <div className="upgrade-card__details">
+                    <strong>연구소 설계도</strong>
+                    <span>탭 연구소 생산량을 영구적으로 1% 올려요</span>
+                    <small>설계도 {blueprints}/{BLUEPRINT_STORAGE_LIMIT}개 · 적용 레벨 {researchLabBlueprintLevel}</small>
+                  </div>
+                  <ActionButton onClick={() => applyBlueprint(setResearchLabBlueprintLevel)} disabled={blueprints === 0 || researchLabCount === 0}>
+                    {researchLabCount === 0 ? "잠김" : "적용하기"}
+                  </ActionButton>
+                </article>
                 <article className="upgrade-card upgrade-card--worker">
                   <div className="upgrade-card__icon" aria-hidden="true">🧑‍🚒</div>
                   <div className="upgrade-card__details">
@@ -1230,7 +1341,7 @@ function App() {
                   <div className="upgrade-card__icon" aria-hidden="true">🧑</div>
                   <div className="upgrade-card__details">
                     <strong>자동 탭퍼 기여</strong>
-                    <span>{autoTapWorkers}명 · 작업대 보너스 +{((workshopBonus - 1) * 100).toFixed(0)}%</span>
+                    <span>{autoTapWorkers}명 · 작업대 보너스 +{((workshopBonus - 1) * 100).toFixed(0)}% · 설계도 Lv.{autoTapperBlueprintLevel}</span>
                     <small>초당 +{formatScore(autoTapperRate)}/s · 마일스톤 ×{autoTapperMilestone}</small>
                   </div>
                 </article>
@@ -1238,7 +1349,7 @@ function App() {
                   <div className="upgrade-card__icon" aria-hidden="true">🏭</div>
                   <div className="upgrade-card__details">
                     <strong>탭 공장 기여</strong>
-                    <span>공장 {factoryCount}개 · 마일스톤 ×{factoryMilestone}</span>
+                    <span>공장 {factoryCount}개 · 마일스톤 ×{factoryMilestone} · 설계도 Lv.{factoryBlueprintLevel}</span>
                     <small>초당 +{formatScore(factoryProductionRate)}/s</small>
                   </div>
                 </article>
@@ -1246,7 +1357,7 @@ function App() {
                   <div className="upgrade-card__icon" aria-hidden="true">🔬</div>
                   <div className="upgrade-card__details">
                     <strong>탭 연구소 기여</strong>
-                    <span>연구소 {researchLabCount}개 · 마일스톤 ×{researchLabMilestone}</span>
+                    <span>연구소 {researchLabCount}개 · 마일스톤 ×{researchLabMilestone} · 설계도 Lv.{researchLabBlueprintLevel}</span>
                     <small>초당 +{formatScore(researchLabProductionRate)}/s</small>
                   </div>
                 </article>
@@ -1346,7 +1457,7 @@ function App() {
               <strong>초기화되는 것</strong>
               <span>포인트, 코인, 탭·작업자·작업대·공장·연구소 강화, 보호막, 진행 중인 이벤트</span>
               <strong>다음 세대에 남는 것</strong>
-              <span>세대 생산 +5%, 세대 기억과 영구 연구, 적금 원금, 직접 탭 업적</span>
+              <span>세대 생산 +5%, 세대 기억과 영구 연구, 설계도, 적금 원금, 직접 탭 업적</span>
             </div>
             <div className="rebirth-confirm__actions">
               <ActionButton tone="weak" onClick={() => setIsRebirthConfirmOpen(false)}>

@@ -22,6 +22,12 @@ create table if not exists public.game_states (
   legacy_start_coins_level integer not null default 0,
   legacy_savings_level integer not null default 0,
   legacy_record_level integer not null default 0,
+  blueprints integer not null default 0,
+  blueprint_last_collected_at timestamptz not null default now(),
+  auto_tapper_blueprint_level integer not null default 0,
+  workshop_blueprint_level integer not null default 0,
+  factory_blueprint_level integer not null default 0,
+  research_lab_blueprint_level integer not null default 0,
   rebirth_tap_multiplier bigint not null default 1,
   shield_charges integer not null default 0,
   total_taps bigint not null default 0,
@@ -66,7 +72,13 @@ alter table public.game_states
   add column if not exists legacy_treasure_level integer not null default 0,
   add column if not exists legacy_start_coins_level integer not null default 0,
   add column if not exists legacy_savings_level integer not null default 0,
-  add column if not exists legacy_record_level integer not null default 0;
+  add column if not exists legacy_record_level integer not null default 0,
+  add column if not exists blueprints integer not null default 0,
+  add column if not exists blueprint_last_collected_at timestamptz not null default now(),
+  add column if not exists auto_tapper_blueprint_level integer not null default 0,
+  add column if not exists workshop_blueprint_level integer not null default 0,
+  add column if not exists factory_blueprint_level integer not null default 0,
+  add column if not exists research_lab_blueprint_level integer not null default 0;
 
 create table if not exists public.rebirth_history (
   id bigint generated always as identity primary key,
