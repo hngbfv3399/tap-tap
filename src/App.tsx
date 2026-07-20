@@ -28,7 +28,7 @@ type Enemy = {
 };
 
 type Treasure = {
-  type: "tap-2" | "tap-10" | "cookie" | "auto-3";
+  type: "tap-2" | "tap-10" | "fortune" | "auto-3";
   x: number;
   y: number;
 };
@@ -234,8 +234,8 @@ function App() {
   const activeTapPower = Math.max(1, Math.floor(tapPower * generationMultiplier * achievementMultiplier * (buff?.target === "tap" ? buff.multiplier : 1)));
   const activeAutoRate = Math.floor((baseAutoRate + factoryRate + researchLabRate) * generationMultiplier * achievementMultiplier * (buff?.target === "auto" ? buff.multiplier : 1));
   const enemyTheftRate = Math.max(0.01, 0.05 - guardianWorkerLevel * 0.005);
-  const baseCookieReward = Math.max(25, activeAutoRate * 120 + activeTapPower * 100);
-  const savingsCookieBonus = Math.min(Math.floor(savings * 0.01 * savingsRewardMultiplier), baseCookieReward * 2);
+  const baseFortuneReward = Math.max(25, activeAutoRate * 120 + activeTapPower * 100);
+  const savingsFortuneBonus = Math.min(Math.floor(savings * 0.01 * savingsRewardMultiplier), baseFortuneReward * 2);
 
   useEffect(() => {
     pointsRef.current = points;
@@ -635,7 +635,7 @@ function App() {
         const height = contentBounds?.height ?? 600;
         const rewardRoll = Math.random();
         const nextTreasure: Treasure = {
-          type: rewardRoll < 0.67 ? "tap-2" : rewardRoll < 0.7 ? "tap-10" : researchLabCount > 0 && rewardRoll < 0.8 ? "auto-3" : "cookie",
+          type: rewardRoll < 0.67 ? "tap-2" : rewardRoll < 0.7 ? "tap-10" : researchLabCount > 0 && rewardRoll < 0.8 ? "auto-3" : "fortune",
           x: padding + Math.random() * Math.max(0, width - treasureSize - padding * 2),
           y: padding + Math.random() * Math.max(0, height - treasureSize - padding * 2),
         };
@@ -802,11 +802,11 @@ function App() {
   const collectTreasure = () => {
     if (!treasure) return;
 
-    if (treasure.type === "cookie") {
-      const cookieReward = baseCookieReward + savingsCookieBonus;
-      setPoints((currentPoints) => currentPoints + cookieReward);
-      setLifetimePoints((currentPoints) => currentPoints + cookieReward);
-      setRewardNotice(`행운의 쿠키! +${formatScore(cookieReward)} 포인트`);
+    if (treasure.type === "fortune") {
+      const fortuneReward = baseFortuneReward + savingsFortuneBonus;
+      setPoints((currentPoints) => currentPoints + fortuneReward);
+      setLifetimePoints((currentPoints) => currentPoints + fortuneReward);
+      setRewardNotice(`행운의 보물! +${formatScore(fortuneReward)} 포인트`);
       window.setTimeout(() => setRewardNotice(null), 1_400);
     } else {
       const isAutoBoost = treasure.type === "auto-3";
@@ -1096,8 +1096,8 @@ function App() {
                   <div className="upgrade-card__icon" aria-hidden="true">🏦</div>
                   <div className="upgrade-card__details">
                     <strong>세대 적금</strong>
-                    <span>현재 포인트의 절반을 맡기면 행운의 쿠키 보상이 커져요</span>
-                    <small>적금 {formatScore(savings)} · 쿠키 추가 보상 +{formatScore(savingsCookieBonus)}</small>
+                    <span>현재 포인트의 절반을 맡기면 행운의 보물 보상이 커져요</span>
+                    <small>적금 {formatScore(savings)} · 보물 추가 보상 +{formatScore(savingsFortuneBonus)}</small>
                   </div>
                   <ActionButton onClick={depositSavings} disabled={points < 2}>
                     절반 넣기
@@ -1318,7 +1318,7 @@ function App() {
                   <div className="upgrade-card__icon" aria-hidden="true">🏦</div>
                   <div className="upgrade-card__details">
                     <strong>금고 관리법</strong>
-                    <span>세대 적금이 행운의 쿠키에 주는 추가 보상을 20% 올려요</span>
+                    <span>세대 적금이 행운의 보물에 주는 추가 보상을 20% 올려요</span>
                     <small>레벨 {legacySavingsLevel}/5 · 현재 +{legacySavingsLevel * 20}%</small>
                   </div>
                   <ActionButton onClick={() => buyLegacyUpgrade(legacySavingsLevel, 5, setLegacySavingsLevel)} disabled={legacySavingsLevel >= 5 || legacyPoints < getLegacyCost(legacySavingsLevel)}>
@@ -1408,7 +1408,7 @@ function App() {
                     </article>
                   );
                 })}
-                <p className="achievement-summary">세대 적금 업적 · 쿠키 적금 보너스 +{(savingsAchievementCount * 5).toFixed(0)}%</p>
+                <p className="achievement-summary">세대 적금 업적 · 보물 적금 보너스 +{(savingsAchievementCount * 5).toFixed(0)}%</p>
                 {savingsAchievements.map((achievement) => {
                   const unlocked = savings >= achievement.target;
                   const progress = Math.min((savings / achievement.target) * 100, 100);
